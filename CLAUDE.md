@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Plan
 
 ### Before starting work
+
 - Write a plan to .claude/tasks/TASK_NAME.md
 - The plan should be a detailed implementation plan and the resoning behind it.
 - The plan should consist of a lists of tasks to execute.

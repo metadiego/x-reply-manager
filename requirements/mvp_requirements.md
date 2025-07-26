@@ -37,16 +37,23 @@
 
 4.1 User Onboarding & Profile Setup
 - Twitter OAuth integration: Secure account connection
-- Areas of focus: Define who they want to engage with (competitors, customers, peers, subject, twitter list, etc)
-- Expertise areas: User selects 3-5 topics of interest/expertise with which they wish to engage.
+- Monitoring targets setup: Users create and configure monitoring targets
+  - **Topic Targets**: Define keywords, hashtags, exclusion terms, and engagement thresholds
+  - **Twitter List Targets**: Select from existing Twitter lists or discover public lists
+  - **Target Management**: Name, pause, archive, and organize monitoring targets
 - Voice training: User provides 5-10 sample tweets/replies for AI voice modeling
+- Daily digest preferences: Set time, timezone, and frequency preferences
 
 4.2 Daily Digest Generation
-- Smart post curation: 10-20 relevant posts delivered via app + email at user-specified time
-- Post scoring algorithm: Relevance + engagement potential + relationship value
-- AI reply suggestions: 1 suggested response per post.
-- Context snippets: Brief explanation of why this post was selected
-- Quick actions: One-click approve, edit, or skip each suggestion
+- **Monitoring targets processing**: System processes each active monitoring target
+  - Topic targets: Search Twitter for keywords/hashtags with filters
+  - Twitter list targets: Fetch timeline posts from specified lists
+- **Smart post curation**: 10-20 relevant posts delivered via app + email at user-specified time
+- **Post scoring algorithm**: Relevance + engagement potential + relationship value + recency
+- **AI reply suggestions**: 1 suggested response per post, styled to user's voice
+- **Source tracking**: Each post shows which monitoring target generated it
+- **Context snippets**: Brief explanation of why this post was selected
+- **Quick actions**: One-click approve, edit, or skip each suggestion
 
 4.3 Reply Management
 - Edit interface: Simple text editor to modify AI suggestions
@@ -54,10 +61,12 @@
 - Character count: Real-time Twitter character limit tracking
 
 4.4 Analytics Dashboard (Basic)
-- Engagement metrics: Likes, replies, retweets on user's replies
-- Relationship tracking: New followers gained from replies
-- Time saved: Estimated vs. manual engagement
-- Relationship tracking: replies by X account.
+- **Engagement metrics**: Likes, replies, retweets on user's replies
+- **Monitoring target performance**: Track effectiveness of each target
+- **Relationship tracking**: New followers gained from replies, organized by source target
+- **Time saved**: Estimated vs. manual engagement
+- **Target analytics**: Posts generated, approval rates, and engagement by monitoring target
+- **Relationship mapping**: Track replies and engagement by X account
 
 ## 5. Technical Requirements
 
@@ -69,25 +78,33 @@
 - Analytics: Mixpanel for user activity analytics
 
 5.2 Data Requirements
-- User profiles: Preferences, engagement history
-- Post database: Cached relevant posts with metadata
-- Reply history: Track all generated and sent replies
-- Analytics data: Engagement metrics, relationship mapping
-- Training data: User edits and feedback for AI improvement
+- **User profiles**: Preferences, engagement history, daily digest settings
+- **Monitoring targets**: Topic configurations, Twitter list settings, target performance
+- **Post database**: Cached relevant posts with metadata and source target tracking
+- **Reply history**: Track all generated and sent replies with target attribution
+- **Analytics data**: Engagement metrics by target, relationship mapping, target performance
+- **Training data**: User edits and feedback for AI improvement
 
 ##  6. User Experience Design
 6.1 Daily Workflow
-- Morning email digest: Receive curated posts with AI suggestions
-- Review interface: Web app for editing/approving replies (5-10 min)
-- Automated posting: Scheduled throughout day or immediate
-- Weekly review: Analytics and relationship growth summary
+- **Morning email digest**: Receive curated posts from all active monitoring targets with AI suggestions
+- **Review interface**: Web app for editing/approving replies (5-10 min)
+  - Posts organized by monitoring target source
+  - Filter and sort by target, engagement score, or relationship value
+- **Automated posting**: Scheduled throughout day or immediate
+- **Weekly review**: Analytics and relationship growth summary by monitoring target
 
 6.2 Key User Journeys
-- New User Onboarding
-- Sign up → Connect Twitter → Define expertise → Train AI voice → Receive first digest (24 hours)
+- **New User Onboarding**
+- Sign up → Connect Twitter → Create monitoring targets → Train AI voice → Receive first digest (24 hours)
+  - Target setup: Choose 2-5 monitoring targets (mix of topics and Twitter lists)
+  - Topic configuration: Define keywords, hashtags, exclusion terms
+  - List selection: Choose from existing Twitter lists or discover relevant public lists
 
 6.3 Daily Power User
-- Email notification → Open app → Review 10 posts → Edit 3 replies → Approve 7 → Schedule posting → Close app (8 minutes)
+- Email notification → Open app → Review 10 posts from multiple targets → Edit 3 replies → Approve 7 → Schedule posting → Close app (8 minutes)
+- **Target management**: Quickly pause/activate targets based on current priorities
+- **Performance review**: Check which targets are generating the best engagement
 
 6.4 Enterprise Admin
 - Review team performance → Adjust brand guidelines → Approve pending replies → Generate management report
