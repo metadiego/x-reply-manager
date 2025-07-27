@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### While implementing
 
 - You should update the plan as you work.
+- Your are requireed to update the plan .claude/tasks/TASK_NAME.md as you complete each task in the plan.
 - After you complete the tasks in the plan, you should update and append detailed descriptions of the changes you made, so the following tasks can be easily handed over to engineers.
 
 ## Project Overview
