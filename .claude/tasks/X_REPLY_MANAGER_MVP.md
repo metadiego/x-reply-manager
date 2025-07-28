@@ -218,7 +218,7 @@ processing_batches (
 **Timeline**: 2-3 weeks
 
 **Key Deliverables:**
-- Complete user onboarding flow (Sign up → Connect Twitter → Setup basic targets → AI voice training)
+- Complete user onboarding flow (Sign up → Connect Twitter → Email → Setup basic targets → AI voice training)
 - AI voice training with smart discovery
 - Basic monitoring targets creation interface
 - Email preferences and digest scheduling setup
@@ -390,10 +390,10 @@ processing_batches (
 ### Post Curation Strategy
 
 **Scoring Algorithm:**
-- **Relevance (40%)**: Keyword/hashtag matching and topic alignment
-- **Engagement Potential (25%)**: Like/retweet/reply counts and author influence
-- **Relationship Value (25%)**: Strategic connection opportunities
-- **Recency (10%)**: Time-sensitive content prioritization
+- **Relevance (35%)**: Keyword/hashtag matching and topic alignment
+- **Engagement Potential (20%)**: Like/retweet/reply counts and author influence
+- **Relationship Value (20%)**: Strategic connection opportunities
+- **Recency (25%)**: Time-sensitive content prioritization
 
 **Filtering Logic:**
 - **Topic Targets**: Keyword/hashtag matching with exclusion terms
@@ -465,7 +465,7 @@ processing_batches (
 **Testing & Refinement** (1-2 weeks)
 
 ### Infrastructure Requirements
-- **Hosting**: Vercel/Netlify for Next.js deployment
+- **Hosting**: Vercel for Next.js deployment
 - **Database**: Supabase PostgreSQL with real-time features
 - **External APIs**: Twitter API v2, OpenAI, SendGrid/Mailgun
 - **Analytics**: Mixpanel for user behavior tracking
@@ -577,35 +577,11 @@ processing_batches (
 - **Engagement Growth**: 25% increase in meaningful Twitter interactions
 - **Business Impact**: 15% of users report direct business value
 
-## Implementation Roadmap
-
-### Immediate Next Steps (Week 1)
-1. **Team Assembly**: Recruit and onboard development team
-2. **Environment Setup**: Development, staging, and production environments
-3. **Project Initialization**: Repository setup, CI/CD pipeline configuration
-4. **Stakeholder Alignment**: Final requirements review and approval
-
-### Phase Kickoff Process
-- **Phase Planning**: Detailed task breakdown for each 2-3 week sprint
-- **Daily Standups**: Progress tracking and blocker resolution
-- **Weekly Reviews**: Deliverable assessment and timeline adjustments
-- **Phase Demos**: Stakeholder review and feedback collection
-
-### Quality Gates
-- **Code Review**: All changes require peer review
-- **Testing Coverage**: Minimum 80% test coverage for critical paths
-- **Performance Benchmarks**: API response time and cost efficiency targets
-- **Security Audits**: Authentication and data protection validation
-
-### Go-to-Market Preparation
-- **Beta Testing**: Limited user group for feedback and validation
-- **Documentation**: User guides and API documentation
-- **Support Systems**: Customer service and technical support setup
-- **Marketing Materials**: Product positioning and feature highlights
 
 ## Future Roadmap (Post-MVP)
 
 ### Quarter 1 Enhancements
+- **Real-time Replies**: be the first to reply to accounts.
 - **Advanced Analytics**: Detailed performance dashboards and insights
 - **Automated Posting**: AI-driven reply posting with safety controls
 - **Team Features**: Shared monitoring targets and collaboration tools
@@ -618,7 +594,6 @@ processing_batches (
 - **Relationship Intelligence**: Enhanced relationship scoring and mapping
 
 ### Long-term Vision
-- **Real-time Engagement**: Instant reply suggestions for active conversations
 - **Predictive Analytics**: Optimal posting time recommendations
 - **Machine Learning**: Advanced post curation and quality prediction
 - **Enterprise Features**: Brand management and compliance tools
