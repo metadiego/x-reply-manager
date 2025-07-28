@@ -24,12 +24,9 @@ export function TwitterLoginButton({
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'twitter',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: 'tweet.read tweet.write users.read offline.access'
-        }
+      // Use the exact pattern from Supabase docs
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'twitter'
       });
       
       if (error) {
