@@ -57,9 +57,9 @@
 - **Quick actions**: One-click approve, edit, or skip each suggestion
 
 4.3 Reply Management
-- Edit interface: Simple text editor to modify AI suggestions
-- Scheduling: Option to post reply now or schedule for later
-- Character count: Real-time Twitter character limit tracking
+- **Edit interface**: Simple text editor to modify AI suggestions
+- **Scheduling**: Option to post reply now or schedule for later
+- **Character count**: Real-time Twitter character limit tracking
 
 4.4 Analytics Dashboard (Basic)
 - **Engagement metrics**: Likes, replies, retweets on user's replies
@@ -132,15 +132,15 @@
 - Cost allocation target: Maximum 40% of user subscription revenue on external API costs
 
 8.2 Per-user API budget calculations:
-- Starter ($19.99/month): $8 budget = ~600 posts analyzed monthly (~20 posts/day)
-- Professional ($39.99/month): $16 budget = ~1,200 posts analyzed monthly (~40 posts/day)
-- Enterprise ($59.99/month): $40 budget = ~3,000 posts analyzed monthly (~100 posts/day)
+- Starter ($29.99/month): $12 budget = ~900 posts analyzed monthly (~30 posts/day)
+- Professional ($49.99/month): $20 budget = ~1,500 posts analyzed monthly (~50 posts/day)
+- Enterprise ($99.99/month): $60 budget = ~3,600 posts analyzed monthly (~150 posts/day)
 
 8.3 AI Token Cost Considerations
 - Reply generation: ~1000 tokens per reply (read post + reply) (5-30 posts daily)
 - Estimated monthly tokens per user: 18,000-45,000 tokens
 - OpenAI cost: ~$0.50-1.25 per user per month at current rates
-- Combined external costs: Twitter API + AI tokens = 35-45% of subscription revenue
+- Combined external costs: Twitter API + AI tokens = 45-60% of subscription revenue
 
 ## 9. Pricing 
 
