@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { twitterCredentialsService } from "@/lib/twitter-credentials";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Twitter, Mail, Clock, User, Shield } from "lucide-react";
+import { Twitter, Mail, User, Shield } from "lucide-react";
 import { TwitterLoginButton } from "@/components/twitter-login-button";
 
 export default async function SettingsPage() {
@@ -26,7 +25,9 @@ export default async function SettingsPage() {
     .eq('id', user.sub)
     .single();
 
-  const hasTwitterCredentials = await twitterCredentialsService.hasValidCredentials(user.sub);
+  // Check if user has Twitter provider linked via Supabase OAuth
+  const { data: identities } = await supabase.auth.admin.getUserById(user.sub);
+  const hasTwitterCredentials = identities?.user?.identities?.some(identity => identity.provider === 'twitter') ?? false;
 
   return (
     <div className="space-y-6">

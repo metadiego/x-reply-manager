@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { twitterCredentialsService } from "@/lib/twitter-credentials";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Twitter, Mail, Target, CheckCircle, XCircle, AlertCircle } from "lucide-react";
@@ -23,7 +22,9 @@ export default async function DashboardPage() {
     .eq('id', user.sub)
     .single();
 
-  const hasTwitterCredentials = await twitterCredentialsService.hasValidCredentials(user.sub);
+  // Check if user has Twitter provider linked via Supabase OAuth
+  const { data: identities } = await supabase.auth.admin.getUserById(user.sub);
+  const hasTwitterCredentials = identities?.user?.identities?.some(identity => identity.provider === 'twitter') ?? false;
 
   // Get monitoring targets count
   const { count: targetsCount } = await supabase
