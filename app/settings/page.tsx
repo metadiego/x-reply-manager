@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Twitter, Mail, User, Shield } from "lucide-react";
 import { TwitterLoginButton } from "@/components/twitter-login-button";
+import { AppHeader } from "@/components/app-header";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -30,7 +31,10 @@ export default async function SettingsPage() {
   const hasTwitterCredentials = identities?.user?.identities?.some(identity => identity.provider === 'twitter') ?? false;
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-background">
+      <AppHeader />
+      <main className="container mx-auto py-6">
+        <div className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
@@ -261,6 +265,8 @@ export default async function SettingsPage() {
           )}
         </CardContent>
       </Card>
+        </div>
+      </main>
     </div>
   );
 }

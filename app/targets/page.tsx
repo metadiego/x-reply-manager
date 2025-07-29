@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Target, Plus, List, Hash } from "lucide-react";
+import { AppHeader } from "@/components/app-header";
 
 export default async function TargetsPage() {
   const supabase = await createClient();
@@ -13,7 +14,10 @@ export default async function TargetsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-background">
+      <AppHeader />
+      <main className="container mx-auto py-6">
+        <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Monitoring Targets</h1>
@@ -106,6 +110,8 @@ export default async function TargetsPage() {
           </Button>
         </CardContent>
       </Card>
+        </div>
+      </main>
     </div>
   );
 }

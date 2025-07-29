@@ -1,10 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "@/components/login-form";
-import { AuthButton } from "@/components/auth-button";
-import { ThemeSwitcher } from "@/components/theme-switcher";
+import { AppHeader } from "@/components/app-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Twitter, Mail, Target, CheckCircle, XCircle, AlertCircle, Home, Settings, BarChart3 } from "lucide-react";
+import { Twitter, Mail, Target, CheckCircle, XCircle, AlertCircle, Calendar, Clock, ExternalLink, BarChart3 } from "lucide-react";
 import Link from "next/link";
 
 export default async function HomePage() {
@@ -78,61 +77,7 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
-          <div className="mr-4 flex">
-            <Link className="mr-6 flex items-center space-x-2" href="/">
-              <Twitter className="h-6 w-6" />
-              <span className="font-bold sm:inline-block">
-                X Reply Manager
-              </span>
-            </Link>
-          </div>
-          
-          <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-            <nav className="flex items-center space-x-6 text-sm font-medium">
-              <Link
-                href="/"
-                className="transition-colors hover:text-foreground/80 text-foreground/60"
-              >
-                <Home className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/targets"
-                className="transition-colors hover:text-foreground/80 text-foreground/60"
-              >
-                <Target className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/digest"
-                className="transition-colors hover:text-foreground/80 text-foreground/60"
-              >
-                <Mail className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/analytics"
-                className="transition-colors hover:text-foreground/80 text-foreground/60"
-              >
-                <BarChart3 className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/settings"
-                className="transition-colors hover:text-foreground/80 text-foreground/60"
-              >
-                <Settings className="h-4 w-4" />
-              </Link>
-            </nav>
-            
-            <div className="flex items-center space-x-2">
-              <ThemeSwitcher />
-              <AuthButton />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
+      <AppHeader />
       <main className="container mx-auto py-6">
         <div className="space-y-6">
           {/* Welcome Header */}
@@ -247,6 +192,73 @@ export default async function HomePage() {
             </Card>
           </div>
 
+          {/* Daily Digest Section */}
+          <div id="digest" className="space-y-4">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold tracking-tight">Today's Digest</h2>
+              <p className="text-muted-foreground">
+                Review curated posts and manage your reply suggestions for {new Date().toLocaleDateString('en-US', { 
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric'
+                })}.
+              </p>
+            </div>
+
+            {/* Digest Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Daily Digest
+                </CardTitle>
+                <CardDescription>
+                  {new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4 p-4 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <Clock className="h-5 w-5 text-amber-600" />
+                  <div>
+                    <p className="font-medium text-amber-800 dark:text-amber-200">
+                      Digest processing in progress
+                    </p>
+                    <p className="text-sm text-amber-600 dark:text-amber-400">
+                      Your daily digest will be ready shortly. Check back in a few minutes.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Empty State for when no digest is available */}
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Mail className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No digest available yet</h3>
+                <p className="text-muted-foreground text-center mb-6 max-w-md">
+                  Once your monitoring targets are set up and processing begins, your curated posts will appear here.
+                </p>
+                <div className="flex gap-2">
+                  <Button asChild variant="outline">
+                    <Link href="/targets">
+                      Set Up Targets
+                    </Link>
+                  </Button>
+                  <Button variant="outline">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Check Email
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Quick Actions */}
           {allStepsCompleted && (
             <Card>
@@ -257,16 +269,16 @@ export default async function HomePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex gap-4">
-                <Button asChild>
-                  <Link href="/digest">
-                    <Mail className="mr-2 h-4 w-4" />
-                    View Today's Digest
-                  </Link>
-                </Button>
                 <Button asChild variant="outline">
                   <Link href="/targets">
                     <Target className="mr-2 h-4 w-4" />
                     Manage Targets
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/analytics">
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    View Analytics
                   </Link>
                 </Button>
                 <Button asChild variant="outline">
