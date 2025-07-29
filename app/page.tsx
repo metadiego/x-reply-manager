@@ -31,9 +31,7 @@ export default async function HomePage() {
     .eq('id', user.sub)
     .single();
 
-  // Check if user has Twitter provider linked via Supabase OAuth
-  const { data: identities } = await supabase.auth.admin.getUserById(user.sub);
-  const hasTwitterCredentials = identities?.user?.identities?.some(identity => identity.provider === 'twitter') ?? false;
+  // Note: Twitter credentials check removed since all users authenticate via Twitter OAuth
 
   // Get monitoring targets count
   const { count: targetsCount } = await supabase
@@ -51,13 +49,6 @@ export default async function HomePage() {
 
   const setupSteps = [
     {
-      title: "Connect Twitter Account",
-      description: "Connect your Twitter account to start managing replies",
-      completed: hasTwitterCredentials,
-      href: hasTwitterCredentials ? undefined : "/",
-      icon: Twitter
-    },
-    {
       title: "Set Up Monitoring Targets",
       description: "Add topics or Twitter lists to monitor for relevant posts",
       completed: (targetsCount || 0) > 0,
@@ -68,12 +59,83 @@ export default async function HomePage() {
       title: "Configure Daily Digest",
       description: "Set your preferred time for receiving daily email digests",
       completed: !!profile?.daily_digest_time,
-      href: "/settings",
+      href: "/settings", 
       icon: Mail
+    },
+    {
+      title: "AI Voice Training",
+      description: "Train AI to write replies in your style",
+      completed: profile?.voice_training_samples && profile.voice_training_samples.length > 0,
+      href: "/onboarding",
+      icon: Clock
     }
   ];
 
   const allStepsCompleted = setupSteps.every(step => step.completed);
+
+  // Redirect new users to onboarding if they haven't completed setup
+  if (!allStepsCompleted) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <main className="container mx-auto py-6">
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <h1 className="text-3xl font-bold tracking-tight">
+                Welcome to X Reply Manager!
+              </h1>
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+                Let's get you set up with your personalized daily digest of engagement opportunities. 
+                This will only take a few minutes.
+              </p>
+              <div className="flex justify-center pt-4">
+                <Button asChild size="lg">
+                  <Link href="/onboarding">
+                    <Twitter className="mr-2 h-5 w-5" />
+                    Start Setup
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* Setup Progress Preview */}
+            <Card className="max-w-2xl mx-auto">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  Setup Progress
+                </CardTitle>
+                <CardDescription>
+                  Complete these steps to start receiving your daily digest
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {setupSteps.map((step, index) => {
+                  const Icon = step.icon;
+                  return (
+                    <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {step.completed ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-muted-foreground" />
+                        )}
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-medium">{step.title}</h3>
+                        <p className="text-sm text-muted-foreground">{step.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
