@@ -8,7 +8,7 @@ export default async function AnalyticsPage() {
 
   const { data, error } = await supabase.auth.getClaims();
   if (error || !data?.claims) {
-    redirect("/auth/login");
+    redirect("/");
   }
 
   return (

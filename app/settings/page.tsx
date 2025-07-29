@@ -13,7 +13,7 @@ export default async function SettingsPage() {
 
   const { data, error } = await supabase.auth.getClaims();
   if (error || !data?.claims) {
-    redirect("/auth/login");
+    redirect("/");
   }
 
   const user = data.claims;

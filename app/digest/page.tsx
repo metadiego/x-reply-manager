@@ -9,7 +9,7 @@ export default async function DigestPage() {
 
   const { data, error } = await supabase.auth.getClaims();
   if (error || !data?.claims) {
-    redirect("/auth/login");
+    redirect("/");
   }
 
   return (
