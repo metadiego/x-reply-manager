@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Hash, List, X, CheckCircle, Loader2 } from "lucide-react";
+import { Hash, List, X, CheckCircle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface TargetSetupStepProps {
@@ -65,7 +65,7 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
     setTopicTargets(updated);
   };
 
-  const applySuggestedTopic = (topic: any) => {
+  const applySuggestedTopic = (topic: { name: string; keywords: string[]; hashtags: string[] }) => {
     const updated = [...topicTargets];
     updated[0] = {
       name: topic.name,
@@ -79,42 +79,82 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
   const handleSaveTargets = async () => {
     setIsLoading(true);
     try {
-      console.log('Starting to save targets for user:', userId);
+      console.log('=== STARTING TARGET SAVE PROCESS ===');
+      console.log('User ID:', userId);
       console.log('Topic targets to save:', topicTargets);
 
-      // Ensure user profile exists first
+      // First, get the current user to ensure we have proper authentication
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('Authentication error:', userError);
+        throw new Error('Authentication failed. Please refresh the page and try again.');
+      }
+      console.log('Authenticated user:', { id: user.id, email: user.email });
+
+      // Check if user profile exists - with better error handling
+      console.log('Checking for user profile...');
       const { data: existingProfile, error: profileCheckError } = await supabase
         .from('users_profiles')
-        .select('id')
+        .select('id, created_at')
         .eq('id', userId)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid error on missing record
 
-      if (profileCheckError && profileCheckError.code === 'PGRST116') {
+      console.log('Profile check result:', { existingProfile, profileCheckError });
+
+      if (!existingProfile && !profileCheckError) {
         // Profile doesn't exist, create it
         console.log('Creating user profile for:', userId);
-        const { error: profileCreateError } = await supabase
+        const { data: newProfile, error: profileCreateError } = await supabase
           .from('users_profiles')
-          .insert({ id: userId });
+          .insert({ 
+            id: userId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select('id, created_at')
+          .single();
         
         if (profileCreateError) {
           console.error('Error creating user profile:', profileCreateError);
-          throw profileCreateError;
+          console.error('Profile create error details:', {
+            code: profileCreateError.code,
+            message: profileCreateError.message,
+            details: profileCreateError.details,
+            hint: profileCreateError.hint
+          });
+          throw new Error(`Failed to create user profile: ${profileCreateError.message}`);
         }
+        console.log('Created user profile:', newProfile);
       } else if (profileCheckError) {
         console.error('Error checking user profile:', profileCheckError);
-        throw profileCheckError;
+        throw new Error(`Database error: ${profileCheckError.message}`);
       } else {
         console.log('User profile exists:', existingProfile);
       }
 
+      // Verify we can write to monitoring_targets by testing permissions
+      console.log('Testing monitoring_targets permissions...');
+      const { error: permissionError } = await supabase
+        .from('monitoring_targets')
+        .select('count')
+        .eq('user_id', userId)
+        .limit(1);
+      
+      if (permissionError) {
+        console.error('Permission test failed:', permissionError);
+        throw new Error(`Database permission error: ${permissionError.message}`);
+      }
+      console.log('Permissions test passed');
+
       // Save each topic target
-      for (const target of topicTargets) {
+      for (const [index, target] of topicTargets.entries()) {
         if (!target.name.trim()) {
-          console.log('Skipping empty target');
+          console.log(`Skipping empty target at index ${index}`);
           continue;
         }
 
-        console.log('Creating monitoring target:', {
+        console.log(`=== SAVING TARGET ${index + 1} ===`);
+        console.log('Target data:', {
           user_id: userId,
           name: target.name,
           target_type: 'topic',
@@ -126,58 +166,68 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
           .from('monitoring_targets')
           .insert({
             user_id: userId,
-            name: target.name,
+            name: target.name.trim(),
             target_type: 'topic',
             status: 'active'
           })
-          .select()
+          .select('id, name, created_at')
           .single();
 
         if (targetError) {
           console.error('Error creating monitoring target:', targetError);
-          throw targetError;
+          console.error('Target error details:', {
+            code: targetError.code,
+            message: targetError.message,
+            details: targetError.details,
+            hint: targetError.hint
+          });
+          throw new Error(`Failed to create monitoring target: ${targetError.message}`);
         }
 
-        console.log('Created monitoring target:', monitoringTarget);
-
-        console.log('Creating topic configuration:', {
-          monitoring_target_id: monitoringTarget.id,
-          keywords: target.keywords,
-          hashtags: target.hashtags,
-          exclude_keywords: [],
-          min_engagement: 0,
-          languages: ['en']
-        });
+        console.log('✅ Created monitoring target:', monitoringTarget);
 
         // Create topic configuration
+        console.log('Creating topic configuration for target:', monitoringTarget.id);
         const { data: topicConfig, error: topicError } = await supabase
           .from('topic_targets')
           .insert({
             monitoring_target_id: monitoringTarget.id,
-            keywords: target.keywords,
-            hashtags: target.hashtags,
+            keywords: target.keywords.length > 0 ? target.keywords : [],
+            hashtags: target.hashtags.length > 0 ? target.hashtags : [],
             exclude_keywords: [],
             min_engagement: 0,
             languages: ['en']
           })
-          .select();
+          .select('id, keywords, hashtags')
+          .single();
 
         if (topicError) {
           console.error('Error creating topic configuration:', topicError);
-          throw topicError;
+          console.error('Topic config error details:', {
+            code: topicError.code,
+            message: topicError.message,
+            details: topicError.details,
+            hint: topicError.hint
+          });
+          throw new Error(`Failed to create topic configuration: ${topicError.message}`);
         }
 
-        console.log('Created topic configuration:', topicConfig);
+        console.log('✅ Created topic configuration:', topicConfig);
       }
 
-      console.log('All targets saved successfully');
+      console.log('🎉 All targets saved successfully!');
       onComplete();
     } catch (error) {
-      console.error('Error saving targets:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('❌ Error saving targets:', error);
       
-      // Show user-friendly error message
-      alert(`Failed to save targets: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // More detailed error logging
+      if (error && typeof error === 'object') {
+        console.error('Full error object:', JSON.stringify(error, null, 2));
+      }
+      
+      // Show detailed user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to save targets: ${errorMessage}\n\nPlease check the browser console for detailed error information and try again.`);
     } finally {
       setIsLoading(false);
     }

@@ -13,18 +13,41 @@ export default async function OnboardingPage() {
   const user = data.claims;
   
   // Get user profile to check onboarding status
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('users_profiles')
     .select('*')
     .eq('id', user.sub)
-    .single();
+    .maybeSingle(); // Use maybeSingle to avoid errors if profile doesn't exist
+
+  console.log('Onboarding page - User profile check:', { profile, profileError });
+
+  // If no profile exists, create one now (fallback for if the trigger didn't work)
+  if (!profile && !profileError) {
+    console.log('Creating user profile during onboarding page load for user:', user.sub);
+    const { error: createError } = await supabase
+      .from('users_profiles')
+      .insert({ 
+        id: user.sub,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    
+    if (createError) {
+      console.error('Failed to create user profile:', createError);
+      // Continue anyway - the target setup component will handle this
+    } else {
+      console.log('Successfully created user profile');
+    }
+  }
 
   // Check if user has monitoring targets
-  const { count: targetsCount } = await supabase
+  const { count: targetsCount, error: targetsError } = await supabase
     .from('monitoring_targets')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.sub)
     .eq('status', 'active');
+
+  console.log('Onboarding page - Targets count check:', { targetsCount, targetsError });
 
   // If user has completed all setup, redirect to home
   // Note: Twitter connection check removed since all users authenticate via Twitter OAuth

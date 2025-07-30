@@ -1,7 +1,7 @@
 import { AuthButton } from "@/components/auth-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import Link from "next/link";
-import { Mail, Twitter, Home, Settings, Target, BarChart3 } from "lucide-react";
+import { Twitter, Home, Settings, Target, BarChart3 } from "lucide-react";
 
 export function AppHeader() {
   return (

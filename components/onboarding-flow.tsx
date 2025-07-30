@@ -11,8 +11,8 @@ import { DigestPreferencesStep } from "@/components/onboarding/digest-preference
 import { VoiceTrainingStep } from "@/components/onboarding/voice-training-step";
 
 interface OnboardingFlowProps {
-  user: any;
-  profile: any;
+  user: { sub: string; email?: string };
+  profile: { daily_digest_time?: string; voice_training_samples?: string[] } | null;
   targetsCount: number;
 }
 
