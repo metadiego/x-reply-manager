@@ -88,7 +88,7 @@ export default async function OnboardingPage() {
 
   // If user has completed all setup, redirect to home
   // Note: Twitter connection check removed since all users authenticate via Twitter OAuth
-  if ((targetsCount || 0) > 0 && profile?.daily_digest_time && profile?.voice_training_samples?.length > 0) {
+  if ((targetsCount || 0) > 0 && profile?.digest_configured && profile?.voice_training_samples?.length > 0) {
     redirect("/");
   }
 

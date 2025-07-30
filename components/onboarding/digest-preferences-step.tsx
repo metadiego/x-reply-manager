@@ -44,6 +44,7 @@ export function DigestPreferencesStep({ userId, profile, onComplete }: DigestPre
           id: userId,
           daily_digest_time: digestTime,
           timezone: timezone,
+          digest_configured: true,
           updated_at: new Date().toISOString()
         });
 
@@ -57,7 +58,7 @@ export function DigestPreferencesStep({ userId, profile, onComplete }: DigestPre
     }
   };
 
-  if (profile?.daily_digest_time) {
+  if (profile?.digest_configured) {
     return (
       <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
         <CheckCircle className="h-5 w-5 text-green-600" />

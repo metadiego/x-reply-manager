@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users_profiles (
   subscription_tier TEXT DEFAULT 'free',
   daily_digest_time TIME DEFAULT '09:00:00',
   timezone TEXT DEFAULT 'UTC',
+  digest_configured BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

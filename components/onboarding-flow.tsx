@@ -12,7 +12,7 @@ import { VoiceTrainingStep } from "@/components/onboarding/voice-training-step";
 
 interface OnboardingFlowProps {
   user: { sub: string; email?: string };
-  profile: { daily_digest_time?: string; voice_training_samples?: string[] } | null;
+  profile: { daily_digest_time?: string; digest_configured?: boolean; voice_training_samples?: string[] } | null;
   targetsCount: number;
 }
 
@@ -27,7 +27,7 @@ export function OnboardingFlow({
   // Skip Twitter connection since user is already authenticated via Twitter OAuth
   const getInitialStep = () => {
     if (targetsCount === 0) return 0; // Start with monitoring targets
-    if (!profile?.daily_digest_time) return 1; // Then digest preferences
+    if (!profile?.digest_configured) return 1; // Then digest preferences
     if (!profile?.voice_training_samples || profile.voice_training_samples.length === 0) return 2; // Then voice training
     return 3; // Completion step
   };
@@ -48,7 +48,7 @@ export function OnboardingFlow({
       title: "Configure Your Digest",
       description: "Set your preferences for when and how you receive your daily digest.",
       icon: Mail,
-      completed: !!profile?.daily_digest_time
+      completed: !!profile?.digest_configured
     },
     {
       id: 2,
