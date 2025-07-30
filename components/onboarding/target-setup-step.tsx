@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Hash, List, X, CheckCircle, Loader2 } from "lucide-react";
+import { Hash, List, X, CheckCircle, Loader2, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface TargetSetupStepProps {
@@ -23,14 +23,55 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
   const [topicTargets, setTopicTargets] = useState([
     { name: "", keywords: [], hashtags: [], description: "" }
   ]);
-  const [suggestedTopics] = useState([
-    { name: "AI & Machine Learning", keywords: ["artificial intelligence", "machine learning", "AI"], hashtags: ["#AI", "#MachineLearning", "#ArtificialIntelligence"] },
-    { name: "Tech Industry News", keywords: ["technology", "startup", "innovation"], hashtags: ["#Tech", "#Startup", "#Innovation"] },
-    { name: "Web Development", keywords: ["web development", "frontend", "backend"], hashtags: ["#WebDev", "#Frontend", "#Backend"] },
-    { name: "Data Science", keywords: ["data science", "analytics", "big data"], hashtags: ["#DataScience", "#Analytics", "#BigData"] }
+  const [suggestedTopics, setSuggestedTopics] = useState([
+    { name: "AI & Machine Learning", keywords: ["artificial intelligence", "machine learning", "AI"], hashtags: ["#AI", "#MachineLearning", "#ArtificialIntelligence"], confidence: 0.8, reason: "Popular professional topic" },
+    { name: "Tech Industry News", keywords: ["technology", "startup", "innovation"], hashtags: ["#Tech", "#Startup", "#Innovation"], confidence: 0.7, reason: "Common industry interest" },
+    { name: "Web Development", keywords: ["web development", "frontend", "backend"], hashtags: ["#WebDev", "#Frontend", "#Backend"], confidence: 0.6, reason: "Technical field" },
+    { name: "Data Science", keywords: ["data science", "analytics", "big data"], hashtags: ["#DataScience", "#Analytics", "#BigData"], confidence: 0.5, reason: "Growing field" }
   ]);
+  const [isLoadingSmartDiscovery, setIsLoadingSmartDiscovery] = useState(false);
+  const [hasTwitterAnalysis, setHasTwitterAnalysis] = useState(false);
 
   const supabase = createClient();
+
+  // Load smart discovery suggestions on component mount
+  useEffect(() => {
+    loadSmartDiscovery();
+  }, []);
+
+  const loadSmartDiscovery = async () => {
+    setIsLoadingSmartDiscovery(true);
+    try {
+      // Analyze user's Twitter posts to generate topic suggestions
+      const response = await fetch('/api/twitter/analyze-posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        const { analysis } = await response.json();
+        
+        if (analysis.hasRealData && analysis.topicSuggestions.length > 0) {
+          // Real Twitter analysis succeeded
+          setHasTwitterAnalysis(true);
+          setSuggestedTopics(analysis.topicSuggestions);
+        } else {
+          // Use fallback suggestions
+          setSuggestedTopics(analysis.topicSuggestions);
+          setHasTwitterAnalysis(false);
+        }
+        
+        console.log(`Smart Discovery: ${analysis.message}`);
+      } else {
+        console.error('Posts analysis failed, using default suggestions');
+      }
+    } catch (error) {
+      console.error('Smart discovery error:', error);
+      // Keep default suggestions if API fails
+    } finally {
+      setIsLoadingSmartDiscovery(false);
+    }
+  };
 
   const addKeyword = (targetIndex: number, keyword: string) => {
     if (!keyword.trim()) return;
@@ -252,30 +293,57 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
   return (
     <div className="space-y-6">
       <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-          Smart Discovery
-        </h3>
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="h-5 w-5 text-blue-600" />
+          <h3 className="font-semibold text-blue-900 dark:text-blue-100">
+            Smart Discovery
+          </h3>
+          {isLoadingSmartDiscovery && (
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+          )}
+        </div>
         <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-          Get started quickly with these suggested topics based on common professional interests:
+          {hasTwitterAnalysis 
+            ? "Based on analysis of your recent Twitter posts, here are personalized topic suggestions:" 
+            : "Get started quickly with these suggested topics based on common professional interests:"
+          }
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {suggestedTopics.map((topic, index) => (
             <Button
               key={index}
               variant="outline"
               size="sm"
               onClick={() => applySuggestedTopic(topic)}
-              className="justify-start h-auto p-3"
+              className="justify-start h-auto p-3 relative"
+              disabled={isLoadingSmartDiscovery}
             >
-              <div className="text-left">
-                <div className="font-medium">{topic.name}</div>
-                <div className="text-xs text-muted-foreground mt-1">
+              <div className="text-left w-full">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="font-medium">{topic.name}</div>
+                  {topic.confidence && (
+                    <Badge variant="secondary" className="text-xs">
+                      {Math.round(topic.confidence * 100)}%
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
                   {topic.hashtags.slice(0, 3).join(', ')}
                 </div>
+                {topic.reason && (
+                  <div className="text-xs text-muted-foreground mt-1 italic">
+                    {topic.reason}
+                  </div>
+                )}
               </div>
             </Button>
           ))}
         </div>
+        {hasTwitterAnalysis && (
+          <div className="mt-3 p-2 bg-green-100 dark:bg-green-900 rounded text-xs text-green-800 dark:text-green-200">
+            ✨ These suggestions are personalized based on analysis of your Twitter posts
+          </div>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -329,7 +397,7 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
                   </div>
                   <Input
                     placeholder="Add keyword and press Enter"
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         addKeyword(index, e.currentTarget.value);
                         e.currentTarget.value = '';
@@ -353,7 +421,7 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
                   </div>
                   <Input
                     placeholder="Add hashtag and press Enter (# is optional)"
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         addHashtag(index, e.currentTarget.value);
                         e.currentTarget.value = '';

@@ -21,13 +21,31 @@ export default async function OnboardingPage() {
 
   console.log('Onboarding page - User profile check:', { profile, profileError });
 
+  // Get the full user object to extract Twitter metadata
+  const { data: userData } = await supabase.auth.getUser();
+  const fullUser = userData?.user;
+  
+  // Extract Twitter user data if available
+  let twitterHandle = null;
+  let twitterUserId = null;
+  
+  if (fullUser?.app_metadata?.provider === 'twitter' && fullUser?.user_metadata) {
+    const twitterData = fullUser.user_metadata;
+    twitterUserId = twitterData.provider_id || twitterData.sub;
+    twitterHandle = twitterData.user_name || twitterData.preferred_username;
+    console.log('Extracted Twitter data:', { twitterUserId, twitterHandle });
+  }
+
   // If no profile exists, create one now (fallback for if the trigger didn't work)
   if (!profile && !profileError) {
     console.log('Creating user profile during onboarding page load for user:', user.sub);
+    
     const { error: createError } = await supabase
       .from('users_profiles')
       .insert({ 
         id: user.sub,
+        twitter_handle: twitterHandle,
+        twitter_user_id: twitterUserId,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
@@ -36,7 +54,26 @@ export default async function OnboardingPage() {
       console.error('Failed to create user profile:', createError);
       // Continue anyway - the target setup component will handle this
     } else {
-      console.log('Successfully created user profile');
+      console.log('Successfully created user profile with Twitter data');
+    }
+  } 
+  // If profile exists but is missing Twitter data, update it
+  else if (profile && (!profile.twitter_handle || !profile.twitter_user_id) && twitterHandle && twitterUserId) {
+    console.log('Updating existing profile with Twitter data for user:', user.sub);
+    
+    const { error: updateError } = await supabase
+      .from('users_profiles')
+      .update({ 
+        twitter_handle: twitterHandle,
+        twitter_user_id: twitterUserId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.sub);
+    
+    if (updateError) {
+      console.error('Failed to update user profile with Twitter data:', updateError);
+    } else {
+      console.log('Successfully updated user profile with Twitter data');
     }
   }
 

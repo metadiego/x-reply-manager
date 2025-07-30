@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Brain, Twitter, Loader2, RefreshCw, MessageCircle } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { CheckCircle, Brain, Loader2, RefreshCw, MessageCircle } from "lucide-react";
 
 interface VoiceTrainingStepProps {
   userId: string;
@@ -28,8 +27,6 @@ export function VoiceTrainingStep({ userId, profile, onComplete }: VoiceTraining
   const [isTraining, setIsTraining] = useState(false);
   const [trainingComplete, setTrainingComplete] = useState(false);
 
-  const supabase = createClient();
-
   useEffect(() => {
     // Check if voice training is already complete
     if (profile?.voice_training_samples && profile.voice_training_samples.length > 0) {
@@ -40,64 +37,105 @@ export function VoiceTrainingStep({ userId, profile, onComplete }: VoiceTraining
   const analyzeTwitterHistory = async () => {
     setIsAnalyzing(true);
     try {
-      // Simulate Twitter API analysis (in real implementation, this would call Twitter API)
-      // For now, we'll simulate the analysis
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockAnalysis: TwitterAnalysis = {
-        tweetCount: 47,
-        avgLength: 142,
-        commonWords: ["technology", "development", "AI", "startup", "innovation"],
-        tone: "professional",
-        style: ["informative", "question-asking", "value-adding"],
-        sampleTweets: [
-          "Just discovered an interesting approach to handling async state in React. The key is managing loading states properly...",
-          "What's your experience with implementing real-time features? Looking at WebSockets vs Server-Sent Events...",
-          "The intersection of AI and traditional software development is fascinating. We're seeing paradigm shifts in how we build products."
-        ]
-      };
-      
-      setAnalysis(mockAnalysis);
-    } catch (error) {
+      const response = await fetch('/api/twitter/analyze-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok && responseData.analysis) {
+        // Real Twitter analysis succeeded
+        const { analysis } = responseData;
+        
+        // Convert API response to component format
+        const componentAnalysis: TwitterAnalysis = {
+          tweetCount: analysis.recentTweets.length,
+          avgLength: analysis.writingStyle.avgLength,
+          commonWords: analysis.writingStyle.commonWords.slice(0, 5),
+          tone: analysis.writingStyle.tone,
+          style: analysis.writingStyle.style,
+          sampleTweets: analysis.recentTweets.slice(0, 3).map((tweet: any) => tweet.text)
+        };
+        
+        setAnalysis(componentAnalysis);
+      } else if (responseData.canFallback) {
+        // Twitter credentials not available, use mock analysis
+        const mockAnalysis: TwitterAnalysis = {
+          tweetCount: 25,
+          avgLength: 140,
+          commonWords: ["professional", "development", "technology", "innovation", "business"],
+          tone: "professional",
+          style: ["informative", "value-adding"],
+          sampleTweets: [
+            "Looking forward to exploring new opportunities in tech innovation this year.",
+            "What are your thoughts on the latest developments in professional development?",
+            "Excited to share insights from recent business strategy discussions."
+          ]
+        };
+        
+        setAnalysis(mockAnalysis);
+        alert('Twitter account not fully connected. Using sample analysis for demonstration.');
+      } else {
+        throw new Error(responseData.error || 'Failed to analyze Twitter history');
+      }
+    } catch (error: any) {
       console.error('Error analyzing Twitter history:', error);
+      alert(`Failed to analyze your Twitter history: ${error.message}`);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
   const runVoiceTraining = async () => {
+    if (!analysis) {
+      alert('Please analyze your Twitter history first');
+      return;
+    }
+
     setIsTraining(true);
     try {
-      // Simulate AI voice training process
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // In real implementation, this would:
-      // 1. Send tweet samples to OpenAI for analysis
-      // 2. Generate voice profile and test replies
-      // 3. Store training data in database
-      
-      const voiceTrainingSamples = [
-        "Writing style: Professional yet approachable",
-        "Preferred length: 120-160 characters",
-        "Common patterns: Asks thoughtful questions, shares insights",
-        "Tone: Knowledgeable but not condescending",
-        "Engagement style: Value-first, relationship-building"
-      ];
+      const response = await fetch('/api/twitter/voice-training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          analysis: {
+            user: { id: userId }, // Add minimal user info
+            recentTweets: analysis.sampleTweets.map((text, index) => ({
+              id: `sample_${index}`,
+              text,
+              public_metrics: { like_count: 0, retweet_count: 0, reply_count: 0 }
+            })),
+            writingStyle: {
+              avgLength: analysis.avgLength,
+              commonWords: analysis.commonWords,
+              tone: analysis.tone,
+              style: analysis.style
+            },
+            engagementPatterns: {
+              avgLikes: 10,
+              avgRetweets: 2,
+              avgReplies: 3,
+              bestPerformingTweets: []
+            },
+            topicInterests: analysis.commonWords
+          }
+        }),
+      });
 
-      const { error } = await supabase
-        .from('users_profiles')
-        .upsert({
-          id: userId,
-          voice_training_samples: voiceTrainingSamples,
-          updated_at: new Date().toISOString()
-        });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to train voice model');
+      }
 
-      if (error) throw error;
+      const { voiceTraining } = await response.json();
+      console.log('Voice training completed:', voiceTraining);
       
       setTrainingComplete(true);
       onComplete(); // Call onComplete immediately after training completes
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error training voice model:', error);
+      alert(`Failed to train voice model: ${error.message}`);
     } finally {
       setIsTraining(false);
     }
@@ -159,7 +197,7 @@ export function VoiceTrainingStep({ userId, profile, onComplete }: VoiceTraining
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Twitter className="h-5 w-5 text-blue-500" />
+              <MessageCircle className="h-5 w-5 text-blue-500" />
               Analyze Your Twitter Voice
             </CardTitle>
             <CardDescription>
@@ -191,7 +229,7 @@ export function VoiceTrainingStep({ userId, profile, onComplete }: VoiceTraining
                   </>
                 ) : (
                   <>
-                    <Twitter className="h-4 w-4 mr-2" />
+                    <MessageCircle className="h-4 w-4 mr-2" />
                     Analyze My Tweets
                   </>
                 )}

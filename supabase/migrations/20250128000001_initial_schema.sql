@@ -189,9 +189,25 @@ CREATE POLICY "Users can view own processing batches" ON processing_batches FOR 
 -- Create function to automatically create user profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  twitter_handle TEXT := NULL;
+  twitter_user_id TEXT := NULL;
 BEGIN
-  INSERT INTO public.users_profiles (id)
-  VALUES (NEW.id);
+  -- Extract Twitter data if this is a Twitter OAuth signup
+  IF NEW.app_metadata ->> 'provider' = 'twitter' AND NEW.user_metadata IS NOT NULL THEN
+    twitter_user_id := NEW.user_metadata ->> 'provider_id';
+    IF twitter_user_id IS NULL THEN
+      twitter_user_id := NEW.user_metadata ->> 'sub';
+    END IF;
+    
+    twitter_handle := NEW.user_metadata ->> 'user_name';
+    IF twitter_handle IS NULL THEN
+      twitter_handle := NEW.user_metadata ->> 'preferred_username';
+    END IF;
+  END IF;
+
+  INSERT INTO public.users_profiles (id, twitter_handle, twitter_user_id)
+  VALUES (NEW.id, twitter_handle, twitter_user_id);
   
   INSERT INTO public.user_processing_state (user_id)
   VALUES (NEW.id);
