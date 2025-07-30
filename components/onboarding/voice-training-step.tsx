@@ -95,6 +95,7 @@ export function VoiceTrainingStep({ userId, profile, onComplete }: VoiceTraining
       if (error) throw error;
       
       setTrainingComplete(true);
+      onComplete(); // Call onComplete immediately after training completes
     } catch (error) {
       console.error('Error training voice model:', error);
     } finally {
