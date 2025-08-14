@@ -27,7 +27,7 @@ export default async function HomePage() {
   // Check user profile and Twitter connection status
   const { data: profile } = await supabase
     .from('users_profiles')
-    .select('twitter_handle, twitter_user_id, subscription_tier, daily_digest_time, timezone')
+    .select('twitter_handle, twitter_user_id, subscription_tier, daily_digest_time, timezone, digest_configured, voice_training_samples')
     .eq('id', user.sub)
     .single();
 
@@ -58,7 +58,7 @@ export default async function HomePage() {
     {
       title: "Configure Daily Digest",
       description: "Set your preferred time for receiving daily email digests",
-      completed: !!profile?.daily_digest_time,
+      completed: !!profile?.digest_configured,
       href: "/settings", 
       icon: Mail
     },
