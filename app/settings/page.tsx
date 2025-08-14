@@ -27,8 +27,8 @@ export default async function SettingsPage() {
     .single();
 
   // Check if user has Twitter provider linked via Supabase OAuth
-  const { data: identities } = await supabase.auth.admin.getUserById(user.sub);
-  const hasTwitterCredentials = identities?.user?.identities?.some(identity => identity.provider === 'twitter') ?? false;
+  const { data: userData } = await supabase.auth.getUser();
+  const hasTwitterCredentials = userData?.user?.identities?.some(identity => identity.provider === 'twitter') ?? false;
 
   return (
     <div className="min-h-screen bg-background">
