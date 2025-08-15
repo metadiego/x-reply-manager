@@ -85,7 +85,7 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
     // Fetch user's recent tweets (fetch more for better analysis)
     console.log(`Fetching tweets for @${profile.twitter_handle} for combined analysis`);
     // TODO: change this to 20 once we finish testing
-    const userTweets = await twitterService.getUserTweetsByUsername(profile.twitter_handle, 5);
+    const userTweets = await twitterService.getUserTweetsByUsername(profile.twitter_handle, 10);
 
     if (userTweets.length === 0) {
       return NextResponse.json({
@@ -208,15 +208,16 @@ async function analyzePostsForTopics(tweets: TwitterTweet[]): Promise<TopicSugge
 
     // Create a comprehensive prompt for OpenAI
     const prompt = `
-      Analyze the user's recent tweets to identify key patterns and themes. Suggest exactly 4 distinct, niche topic monitoring targets for X searches to find engagement opportunities.
+      Analyze the user's recent tweets to identify recurring patterns and themes. 
+      Suggest exactly 4 distinct, niche topic monitoring targets for X searches to find engagement opportunities.
 
       User's recent tweets:
       ${tweetTexts}
 
       Guidelines:
-      - Summarize patterns first, then derive professional, industry-specific topics 
+      - Identify REPEATING themes or topics across the user's tweets, then derive professional, industry-specific topics 
         (e.g., "AI Ethics in Healthcare", not "Technology").
-      - Ensure topics are specific, diverse, and actionable; infer conservatively if needed.
+      - Ensure topics are specific, repeated across multiple tweets, diverse, and actionable; infer conservatively if needed.
       - Focus on sub-niches for value in expertise, connections, or visibility.
 
       For each topic, output as JSON object:
