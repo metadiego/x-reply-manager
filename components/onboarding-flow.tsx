@@ -1,14 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, Target, Mail, Clock, ArrowRight, ArrowLeft } from "lucide-react";
+import { CheckCircle, Target, Mail, Clock, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
 import { TargetSetupStep } from "@/components/onboarding/target-setup-step";
 import { DigestPreferencesStep } from "@/components/onboarding/digest-preferences-step";
 import { VoiceTrainingStep } from "@/components/onboarding/voice-training-step";
+
+interface TwitterAnalysisData {
+  tweets: any[];
+  topicAnalysis: {
+    postsAnalyzed: number;
+    topicSuggestions: any[];
+    hasRealData: boolean;
+    message: string;
+  };
+  voiceAnalysis: {
+    tweetCount: number;
+    avgLength: number;
+    commonWords: string[];
+    tone: string;
+    style: string[];
+    sampleTweets: string[];
+    interests: string[];
+    engagementRate: number;
+  };
+}
 
 interface OnboardingFlowProps {
   user: { sub: string; email?: string };
@@ -23,6 +43,11 @@ export function OnboardingFlow({
 }: OnboardingFlowProps) {
   const router = useRouter();
   
+  // State for Twitter analysis data
+  const [twitterAnalysis, setTwitterAnalysis] = useState<TwitterAnalysisData | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  
   // Determine starting step based on completion status
   // Skip Twitter connection since user is already authenticated via Twitter OAuth
   const getInitialStep = () => {
@@ -34,6 +59,40 @@ export function OnboardingFlow({
 
   const [currentStep, setCurrentStep] = useState(getInitialStep());
   const totalSteps = 3; // Reduced from 4 since we skip Twitter connection
+  
+  // Fetch Twitter analysis data once when component mounts
+  useEffect(() => {
+    const fetchTwitterAnalysis = async () => {
+      setIsAnalyzing(true);
+      setAnalysisError(null);
+      
+      try {
+        const response = await fetch('/api/twitter/analyze-onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setTwitterAnalysis(data);
+          console.log('Twitter analysis loaded:', data.topicAnalysis.message);
+        } else {
+          console.error('Failed to fetch Twitter analysis');
+          setAnalysisError('Failed to analyze Twitter account');
+        }
+      } catch (error) {
+        console.error('Error fetching Twitter analysis:', error);
+        setAnalysisError('Error connecting to analysis service');
+      } finally {
+        setIsAnalyzing(false);
+      }
+    };
+    
+    // Only fetch if we haven't already
+    if (!twitterAnalysis && !isAnalyzing) {
+      fetchTwitterAnalysis();
+    }
+  }, []);
 
   const steps = [
     {
@@ -119,31 +178,56 @@ export function OnboardingFlow({
           </div>
         </CardHeader>
         <CardContent>
-          {/* Step 0: Monitoring Targets Setup */}
-          {currentStep === 0 && (
-            <TargetSetupStep 
-              userId={user.sub}
-              onComplete={handleNext}
-              targetsCount={targetsCount}
-            />
+          {/* Show loading state while fetching Twitter analysis */}
+          {isAnalyzing && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">Analyzing your Twitter profile...</p>
+            </div>
           )}
-
-          {/* Step 1: Digest Preferences */}
-          {currentStep === 1 && (
-            <DigestPreferencesStep 
-              userId={user.sub}
-              profile={profile}
-              onComplete={handleNext}
-            />
+          
+          {/* Show error state if analysis failed */}
+          {analysisError && !isAnalyzing && (
+            <div className="text-center py-12">
+              <p className="text-red-500 mb-4">{analysisError}</p>
+              <p className="text-sm text-muted-foreground">
+                You can continue with default suggestions or try refreshing the page.
+              </p>
+            </div>
           )}
+          
+          {/* Show step content when ready */}
+          {!isAnalyzing && (
+            <>
+              {/* Step 0: Monitoring Targets Setup */}
+              {currentStep === 0 && (
+                <TargetSetupStep 
+                  userId={user.sub}
+                  onComplete={handleNext}
+                  targetsCount={targetsCount}
+                  twitterAnalysis={twitterAnalysis}
+                />
+              )}
 
-          {/* Step 2: Voice Training */}
-          {currentStep === 2 && (
-            <VoiceTrainingStep 
-              userId={user.sub}
-              profile={profile}
-              onComplete={handleNext}
-            />
+              {/* Step 1: Digest Preferences */}
+              {currentStep === 1 && (
+                <DigestPreferencesStep 
+                  userId={user.sub}
+                  profile={profile}
+                  onComplete={handleNext}
+                />
+              )}
+
+              {/* Step 2: Voice Training */}
+              {currentStep === 2 && (
+                <VoiceTrainingStep 
+                  userId={user.sub}
+                  profile={profile}
+                  onComplete={handleNext}
+                  twitterAnalysis={twitterAnalysis}
+                />
+              )}
+            </>
           )}
         </CardContent>
       </Card>

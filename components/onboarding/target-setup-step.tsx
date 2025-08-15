@@ -15,9 +15,17 @@ interface TargetSetupStepProps {
   userId: string;
   onComplete: () => void;
   targetsCount: number;
+  twitterAnalysis?: {
+    topicAnalysis: {
+      postsAnalyzed: number;
+      topicSuggestions: any[];
+      hasRealData: boolean;
+      message: string;
+    };
+  } | null;
 }
 
-export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetupStepProps) {
+export function TargetSetupStep({ userId, onComplete, targetsCount, twitterAnalysis }: TargetSetupStepProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("topics");
   const [topicTargets, setTopicTargets] = useState([
@@ -29,49 +37,27 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
     { name: "Web Development", keywords: ["web development", "frontend", "backend"], hashtags: ["#WebDev", "#Frontend", "#Backend"], confidence: 0.6, reason: "Technical field" },
     { name: "Data Science", keywords: ["data science", "analytics", "big data"], hashtags: ["#DataScience", "#Analytics", "#BigData"], confidence: 0.5, reason: "Growing field" }
   ]);
-  const [isLoadingSmartDiscovery, setIsLoadingSmartDiscovery] = useState(false);
+  // Loading state is now handled by parent component
   const [hasTwitterAnalysis, setHasTwitterAnalysis] = useState(false);
+  const [selectedTopicIndex, setSelectedTopicIndex] = useState<number | null>(null);
 
   const supabase = createClient();
 
-  // Load smart discovery suggestions on component mount
+  // Use Twitter analysis from parent component if available
   useEffect(() => {
-    loadSmartDiscovery();
-  }, []);
-
-  const loadSmartDiscovery = async () => {
-    setIsLoadingSmartDiscovery(true);
-    try {
-      // Analyze user's Twitter posts to generate topic suggestions
-      const response = await fetch('/api/twitter/analyze-posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (response.ok) {
-        const { analysis } = await response.json();
-        
-        if (analysis.hasRealData && analysis.topicSuggestions.length > 0) {
-          // Real Twitter analysis succeeded
-          setHasTwitterAnalysis(true);
-          setSuggestedTopics(analysis.topicSuggestions);
-        } else {
-          // Use fallback suggestions
-          setSuggestedTopics(analysis.topicSuggestions);
-          setHasTwitterAnalysis(false);
-        }
-        
-        console.log(`Smart Discovery: ${analysis.message}`);
+    if (twitterAnalysis?.topicAnalysis) {
+      const { topicAnalysis } = twitterAnalysis;
+      if (topicAnalysis.hasRealData && topicAnalysis.topicSuggestions.length > 0) {
+        setHasTwitterAnalysis(true);
+        setSuggestedTopics(topicAnalysis.topicSuggestions);
       } else {
-        console.error('Posts analysis failed, using default suggestions');
+        setSuggestedTopics(topicAnalysis.topicSuggestions);
+        setHasTwitterAnalysis(false);
       }
-    } catch (error) {
-      console.error('Smart discovery error:', error);
-      // Keep default suggestions if API fails
-    } finally {
-      setIsLoadingSmartDiscovery(false);
+      console.log(`Smart Discovery: ${topicAnalysis.message}`);
     }
-  };
+    // Twitter analysis is loaded by parent, no need to set loading state
+  }, [twitterAnalysis]);
 
   const addKeyword = (targetIndex: number, keyword: string) => {
     if (!keyword.trim()) return;
@@ -106,7 +92,7 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
     setTopicTargets(updated);
   };
 
-  const applySuggestedTopic = (topic: { name: string; keywords: string[]; hashtags: string[] }) => {
+  const applySuggestedTopic = (topic: { name: string; keywords: string[]; hashtags: string[] }, index: number) => {
     const updated = [...topicTargets];
     updated[0] = {
       name: topic.name,
@@ -115,6 +101,7 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
       description: `Monitor discussions about ${topic.name.toLowerCase()}`
     };
     setTopicTargets(updated);
+    setSelectedTopicIndex(index);
   };
 
   const handleSaveTargets = async () => {
@@ -298,9 +285,6 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
           <h3 className="font-semibold text-blue-900 dark:text-blue-100">
             Smart Discovery
           </h3>
-          {isLoadingSmartDiscovery && (
-            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-          )}
         </div>
         <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
           {hasTwitterAnalysis 
@@ -309,20 +293,25 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
           }
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {suggestedTopics.map((topic, index) => (
+          {suggestedTopics.map((topic, index) => {
+            const isSelected = selectedTopicIndex === index;
+            return (
             <Button
               key={index}
               variant="outline"
               size="sm"
-              onClick={() => applySuggestedTopic(topic)}
-              className="justify-start h-auto p-3 relative"
-              disabled={isLoadingSmartDiscovery}
+              onClick={() => applySuggestedTopic(topic, index)}
+              className={`justify-start h-auto p-3 relative overflow-hidden transition-colors ${
+                isSelected 
+                  ? 'bg-blue-50 border-blue-300 dark:bg-blue-950 dark:border-blue-700' 
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
             >
-              <div className="text-left w-full">
+              <div className="text-left w-full min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                  <div className="font-medium">{topic.name}</div>
+                  <div className="font-medium truncate pr-2">{topic.name}</div>
                   {topic.confidence && (
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary" className="text-xs flex-shrink-0">
                       {Math.round(topic.confidence * 100)}%
                     </Badge>
                   )}
@@ -331,13 +320,14 @@ export function TargetSetupStep({ userId, onComplete, targetsCount }: TargetSetu
                   {topic.hashtags.slice(0, 3).join(', ')}
                 </div>
                 {topic.reason && (
-                  <div className="text-xs text-muted-foreground mt-1 italic">
+                  <div className="text-xs text-muted-foreground mt-1 italic break-words whitespace-normal">
                     {topic.reason}
                   </div>
                 )}
               </div>
             </Button>
-          ))}
+            );
+          })}
         </div>
         {hasTwitterAnalysis && (
           <div className="mt-3 p-2 bg-green-100 dark:bg-green-900 rounded text-xs text-green-800 dark:text-green-200">

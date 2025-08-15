@@ -10,6 +10,18 @@ interface VoiceTrainingStepProps {
   userId: string;
   profile: any;
   onComplete: () => void;
+  twitterAnalysis?: {
+    voiceAnalysis: {
+      tweetCount: number;
+      avgLength: number;
+      commonWords: string[];
+      tone: string;
+      style: string[];
+      sampleTweets: string[];
+      interests: string[];
+      engagementRate: number;
+    };
+  } | null;
 }
 
 interface TwitterAnalysis {
@@ -21,7 +33,7 @@ interface TwitterAnalysis {
   sampleTweets: string[];
 }
 
-export function VoiceTrainingStep({ userId, profile, onComplete }: VoiceTrainingStepProps) {
+export function VoiceTrainingStep({ userId, profile, onComplete, twitterAnalysis }: VoiceTrainingStepProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<TwitterAnalysis | null>(null);
   const [isTraining, setIsTraining] = useState(false);
@@ -34,7 +46,29 @@ export function VoiceTrainingStep({ userId, profile, onComplete }: VoiceTraining
     }
   }, [profile]);
 
+  // Use Twitter analysis from parent component if available
+  useEffect(() => {
+    if (twitterAnalysis?.voiceAnalysis) {
+      const { voiceAnalysis } = twitterAnalysis;
+      const componentAnalysis: TwitterAnalysis = {
+        tweetCount: voiceAnalysis.tweetCount,
+        avgLength: voiceAnalysis.avgLength,
+        commonWords: voiceAnalysis.commonWords.slice(0, 5),
+        tone: voiceAnalysis.tone as 'professional' | 'casual' | 'technical' | 'friendly',
+        style: voiceAnalysis.style,
+        sampleTweets: voiceAnalysis.sampleTweets
+      };
+      setAnalysis(componentAnalysis);
+      console.log('Voice analysis loaded from parent component');
+    }
+  }, [twitterAnalysis]);
+
   const analyzeTwitterHistory = async () => {
+    if (twitterAnalysis?.voiceAnalysis) {
+      // Already have analysis from parent, no need to fetch again
+      return;
+    }
+    
     setIsAnalyzing(true);
     try {
       const response = await fetch('/api/twitter/analyze-user', {
