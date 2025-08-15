@@ -312,48 +312,35 @@ export function VoiceTrainingStep({ userId, profile, onComplete, twitterAnalysis
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5 text-purple-600" />
-                Train Your AI Voice
-              </CardTitle>
-              <CardDescription>
-                Create a personalized AI model that writes replies in your style
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-3 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Training will create:</h4>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• A personalized writing model based on your style</li>
-                  <li>• Reply templates that match your tone and expertise</li>
-                  <li>• Contextual understanding of your engagement preferences</li>
-                  <li>• Quality filters to ensure professional consistency</li>
-                </ul>
+          <div className="space-y-6">
+            <div className="text-center space-y-3">
+              <div className="flex items-center justify-center gap-2">
+                <Brain className="h-6 w-6 text-purple-600" />
+                <h3 className="text-xl font-semibold">We&apos;ll use this analysis to craft replies in your tone and style</h3>
               </div>
+            </div>
 
-              <div className="flex justify-center">
-                <Button 
-                  onClick={runVoiceTraining} 
-                  disabled={isTraining}
-                  className="min-w-40"
-                >
-                  {isTraining ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Training AI...
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="h-4 w-4 mr-2" />
-                      Train My Voice
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            <div className="flex justify-center">
+              <Button 
+                onClick={runVoiceTraining} 
+                disabled={isTraining}
+                size="lg"
+                className="min-w-48"
+              >
+                {isTraining ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Training AI...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="h-4 w-4 mr-2" />
+                    Train My Voice
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
