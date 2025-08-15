@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import TwitterApiService, { TwitterTweet } from '@/lib/twitter-api';
+import OpenAI from 'openai';
 
-// Mock AI service for generating topic suggestions from user posts
-// In production, this would use OpenAI API
 interface TopicSuggestion {
   name: string;
   keywords: string[];
@@ -12,6 +11,11 @@ interface TopicSuggestion {
   reason: string;
   relatedPosts: string[]; // IDs of posts that support this topic
 }
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
 
 export async function POST() {
   try {
@@ -48,7 +52,9 @@ export async function POST() {
 
     // Fetch user's recent tweets using their public Twitter handle
     console.log(`Fetching tweets for @${profile.twitter_handle}`);
-    const userTweets = await twitterService.getUserTweetsByUsername(profile.twitter_handle, 20);
+    // TODO: remove this once we finish testing and replace the 5 by 20
+    const userTweets = await twitterService.getUserTweetsByUsername(profile.twitter_handle, 5);
+    console.log('User tweets are:', userTweets);
     
     if (userTweets.length === 0) {
       return NextResponse.json({
@@ -65,14 +71,17 @@ export async function POST() {
     // Analyze posts using AI to generate topic suggestions
     const topicSuggestions = await analyzePostsForTopics(userTweets);
 
-    // Log API usage
+    // Log API usage (Twitter API + OpenAI)
+    // Rough cost estimate: 
+    // - Twitter API: ~$0.0001 per tweet
+    // - OpenAI GPT-3.5: ~$0.001 per 1K tokens (approx 0.002 for our usage)
     await supabase
       .from('api_usage_log')
       .insert({
         user_id: user.id,
         operation_type: 'posts_analysis',
         posts_fetched: userTweets.length,
-        estimated_cost_usd: userTweets.length * 0.0001,
+        estimated_cost_usd: (userTweets.length * 0.0001) + 0.002,
         created_at: new Date().toISOString()
       });
 
@@ -126,115 +135,128 @@ export async function POST() {
   }
 }
 
-// Mock AI analysis function - in production this would use OpenAI
+// Use OpenAI to analyze tweets and generate topic suggestions
 async function analyzePostsForTopics(tweets: TwitterTweet[]): Promise<TopicSuggestion[]> {
-  // Simulate AI processing delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
-
-  const suggestions: TopicSuggestion[] = [];
-  
-  // Extract text content from all tweets
-  const allText = tweets.map(tweet => tweet.text.toLowerCase()).join(' ');
-  
-  // Extract hashtags from tweets
-  const hashtagMatches = allText.match(/#[\w]+/g) || [];
-  const hashtags = [...new Set(hashtagMatches)];
-  
-  // Extract mentions and topics from context annotations
-  const contextTopics = new Set<string>();
-  tweets.forEach(tweet => {
-    if (tweet.context_annotations) {
-      tweet.context_annotations.forEach((annotation) => {
-        if (annotation.entity?.name) {
-          contextTopics.add(annotation.entity.name.toLowerCase());
-        }
-      });
+  try {
+    // If OpenAI API key is not configured, fall back to default suggestions
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your-openai-api-key') {
+      console.log('OpenAI API key not configured, using fallback logic');
+      return getDefaultTopicSuggestions();
     }
-  });
 
-  // Technology/AI detection
-  const techKeywords = ['ai', 'artificial intelligence', 'machine learning', 'tech', 'software', 'code', 'programming', 'development', 'startup', 'innovation'];
-  const techScore = techKeywords.reduce((score, keyword) => score + (allText.includes(keyword) ? 1 : 0), 0);
-  
-  if (techScore > 0 || hashtags.some(tag => ['#ai', '#tech', '#ml', '#programming', '#coding'].includes(tag.toLowerCase()))) {
-    const relatedPosts = tweets.filter(tweet => 
-      techKeywords.some(keyword => tweet.text.toLowerCase().includes(keyword))
-    ).map(tweet => tweet.id);
-    
-    suggestions.push({
-      name: "Technology & AI",
-      keywords: ["artificial intelligence", "machine learning", "technology", "software development", "innovation"],
-      hashtags: ["#AI", "#Tech", "#MachineLearning", "#Software", "#Innovation"],
-      confidence: Math.min(0.95, 0.6 + (techScore * 0.1)),
-      reason: `Found ${techScore} tech-related terms and ${relatedPosts.length} relevant posts`,
-      relatedPosts: relatedPosts.slice(0, 3)
+    // Prepare tweet texts for analysis
+    const tweetTexts = tweets.map((tweet, index) => 
+      `Tweet ${index + 1}: ${tweet.text}`
+    ).join('\n');
+
+    // Create a comprehensive prompt for OpenAI
+    const prompt = `
+      Analyze the user's recent tweets to identify key patterns and themes. Suggest exactly 4 distinct, 
+      niche topic monitoring targets for X searches to find engagement opportunities.
+
+      User's recent tweets:
+      ${tweetTexts}
+
+      Guidelines:
+      - Summarize patterns first, then derive professional, industry-specific topics 
+      (e.g., "AI Ethics in Healthcare", not "Technology").
+      - Ensure topics are specific, diverse, and actionable; infer conservatively if needed.
+      - Focus on sub-niches for value in expertise, connections, or visibility.
+
+      For each topic, output as JSON object:
+      - "name": Short, descriptive title.
+      - "keywords": Exactly 3 searchable terms/phrases.
+      - "hashtags": 3 relevant hashtags.
+      - "confidence": Score 0.5–1.0 based on match strength.
+      - "reason": 1–2 sentences on match and engagement value.
+
+      Output: Valid JSON array of 4 objects only (no extra text). Example:
+      [
+        {
+          "name": "AI in Marketing",
+          "keywords": ["AI marketing automation", "AI marketing tools", "AI marketing strategies", "generative AI ads", "AI personalization marketing"],
+          "hashtags": ["#AIMarketing", "#AIinMarketing", "#MarketingAI", "#MarTech", "#DigitalMarketing"],
+          "confidence": 0.8,
+          "reason": "User discusses AI in marketing campaigns; monitoring could reveal collaborations."
+        }
+      ]
+    `;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert at analyzing social media content and identifying user interests 
+          and expertise areas. You help users discover relevant Twitter monitoring topics based on their 
+          posting history.`
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+      response_format: { type: "json_object" }
     });
-  }
 
-  // Business/Professional detection
-  const businessKeywords = ['business', 'startup', 'entrepreneur', 'leadership', 'strategy', 'growth', 'marketing', 'sales', 'finance'];
-  const businessScore = businessKeywords.reduce((score, keyword) => score + (allText.includes(keyword) ? 1 : 0), 0);
-  
-  if (businessScore > 0 || hashtags.some(tag => ['#business', '#startup', '#entrepreneurship'].includes(tag.toLowerCase()))) {
-    const relatedPosts = tweets.filter(tweet => 
-      businessKeywords.some(keyword => tweet.text.toLowerCase().includes(keyword))
-    ).map(tweet => tweet.id);
-    
-    suggestions.push({
-      name: "Business & Startups",
-      keywords: ["business", "startup", "entrepreneurship", "leadership", "growth strategy"],
-      hashtags: ["#Business", "#Startup", "#Entrepreneurship", "#Leadership", "#Growth"],
-      confidence: Math.min(0.9, 0.6 + (businessScore * 0.1)),
-      reason: `Found ${businessScore} business-related terms and ${relatedPosts.length} relevant posts`,
-      relatedPosts: relatedPosts.slice(0, 3)
+    const response = completion.choices[0]?.message?.content;
+    if (!response) {
+      console.error('No response from OpenAI');
+      return getDefaultTopicSuggestions();
+    }
+
+    // Parse the JSON response
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(response);
+    } catch (parseError) {
+      console.error('Error parsing OpenAI response:', parseError);
+      return getDefaultTopicSuggestions();
+    }
+
+    // Extract suggestions array from the response (handle different response structures)
+    const suggestionsArray = Array.isArray(parsedResponse) 
+      ? parsedResponse 
+      : parsedResponse.suggestions || parsedResponse.topics || [];
+
+    // Map the OpenAI suggestions to our TopicSuggestion format
+    const suggestions: TopicSuggestion[] = suggestionsArray.map((suggestion: any) => {
+      // Find related posts for each suggestion
+      const relatedPosts = tweets.filter(tweet => {
+        const tweetLower = tweet.text.toLowerCase();
+        // Check if tweet contains any of the keywords
+        return suggestion.keywords?.some((keyword: string) => 
+          tweetLower.includes(keyword.toLowerCase())
+        ) || suggestion.hashtags?.some((hashtag: string) => 
+          tweetLower.includes(hashtag.toLowerCase())
+        );
+      }).map(tweet => tweet.id).slice(0, 3);
+
+      return {
+        name: suggestion.name || "Unknown Topic",
+        keywords: Array.isArray(suggestion.keywords) ? suggestion.keywords : [],
+        hashtags: Array.isArray(suggestion.hashtags) ? suggestion.hashtags : [],
+        confidence: typeof suggestion.confidence === 'number' ? suggestion.confidence : 0.7,
+        reason: suggestion.reason || "Based on your tweet analysis",
+        relatedPosts
+      };
     });
-  }
 
-  // Industry-specific detection based on context annotations
-  const industryTopics = Array.from(contextTopics).filter(topic => 
-    ['finance', 'healthcare', 'education', 'marketing', 'design', 'fintech'].includes(topic)
-  );
+    // Ensure we have exactly 4 suggestions
+    if (suggestions.length < 4) {
+      // Add default suggestions to fill up to 4
+      const defaults = getDefaultTopicSuggestions();
+      return [...suggestions, ...defaults].slice(0, 4);
+    }
 
-  if (industryTopics.length > 0) {
-    const primaryIndustry = industryTopics[0];
-    const relatedPosts = tweets.filter(tweet => 
-      tweet.text.toLowerCase().includes(primaryIndustry) ||
-      (tweet.context_annotations && tweet.context_annotations.some((ann) => 
-        ann.entity?.name?.toLowerCase().includes(primaryIndustry)
-      ))
-    ).map(tweet => tweet.id);
-
-    suggestions.push({
-      name: `${primaryIndustry.charAt(0).toUpperCase() + primaryIndustry.slice(1)} Industry`,
-      keywords: [primaryIndustry, `${primaryIndustry} trends`, `${primaryIndustry} news`, `${primaryIndustry} insights`],
-      hashtags: [`#${primaryIndustry.charAt(0).toUpperCase() + primaryIndustry.slice(1)}`],
-      confidence: 0.8,
-      reason: `Frequently posts about ${primaryIndustry} based on tweet analysis`,
-      relatedPosts: relatedPosts.slice(0, 3)
-    });
-  }
-
-  // Personal interests based on frequent hashtags
-  const frequentHashtags = hashtags.slice(0, 5);
-  if (frequentHashtags.length > 0 && suggestions.length < 3) {
-    suggestions.push({
-      name: "Your Interests",
-      keywords: frequentHashtags.map(tag => tag.substring(1)), // Remove # symbol
-      hashtags: frequentHashtags,
-      confidence: 0.7,
-      reason: `Based on your frequent hashtag usage: ${frequentHashtags.join(', ')}`,
-      relatedPosts: tweets.filter(tweet => 
-        frequentHashtags.some(tag => tweet.text.includes(tag))
-      ).map(tweet => tweet.id).slice(0, 3)
-    });
-  }
-
-  // If no specific topics found, return general professional topics
-  if (suggestions.length === 0) {
+    return suggestions.slice(0, 4);
+  } catch (error) {
+    console.error('Error calling OpenAI API:', error);
+    // Fall back to default suggestions if OpenAI fails
     return getDefaultTopicSuggestions();
   }
-
-  return suggestions.slice(0, 4); // Return top 4 suggestions
 }
 
 function getDefaultTopicSuggestions(): TopicSuggestion[] {
