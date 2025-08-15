@@ -223,7 +223,6 @@ export function OnboardingFlow({
               {currentStep === 2 && (
                 <VoiceTrainingStep 
                   userId={user.sub}
-                  profile={profile}
                   onComplete={handleNext}
                   twitterAnalysis={twitterAnalysis}
                 />

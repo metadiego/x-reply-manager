@@ -86,8 +86,7 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
     console.log(`Fetching tweets for @${profile.twitter_handle} for combined analysis`);
     // TODO: change this to 20 once we finish testing
     const userTweets = await twitterService.getUserTweetsByUsername(profile.twitter_handle, 5);
-    console.log('User tweets are:', userTweets);
-    
+
     if (userTweets.length === 0) {
       return NextResponse.json({
         success: true,

@@ -27,8 +27,15 @@ export default async function HomePage() {
   // Check user profile and Twitter connection status
   const { data: profile } = await supabase
     .from('users_profiles')
-    .select('twitter_handle, twitter_user_id, subscription_tier, daily_digest_time, timezone, digest_configured, voice_training_samples')
+    .select('twitter_handle, twitter_user_id, subscription_tier, daily_digest_time, timezone, digest_configured')
     .eq('id', user.sub)
+    .single();
+
+  // Check if voice profile exists
+  const { data: voiceProfile } = await supabase
+    .from('voice_profiles')
+    .select('user_id')
+    .eq('user_id', user.sub)
     .single();
 
   // Note: Twitter credentials check removed since all users authenticate via Twitter OAuth
@@ -65,7 +72,7 @@ export default async function HomePage() {
     {
       title: "AI Voice Training",
       description: "Train AI to write replies in your style",
-      completed: profile?.voice_training_samples && profile.voice_training_samples.length > 0,
+      completed: !!voiceProfile,
       href: "/onboarding",
       icon: Clock
     }
