@@ -12,25 +12,24 @@ interface VoiceTrainingStepProps {
   onComplete: () => void;
   twitterAnalysis?: {
     voiceAnalysis: {
-      tweetCount: number;
-      avgLength: number;
-      commonWords: string[];
-      tone: string;
-      style: string[];
-      sampleTweets: string[];
-      interests: string[];
-      engagementRate: number;
+      postsAnalyzed: number;
+      voiceProfile: {
+        sampleTweets: string[];
+        voicePersonality: string;
+        communicationStyle: string;
+        interests: string[];
+      };
+      hasRealData: boolean;
+      message: string;
     };
   } | null;
 }
 
 interface TwitterAnalysis {
-  tweetCount: number;
-  avgLength: number;
-  commonWords: string[];
-  tone: 'professional' | 'casual' | 'technical' | 'friendly';
-  style: string[];
   sampleTweets: string[];
+  voicePersonality: string;
+  communicationStyle: string;
+  interests: string[];
 }
 
 export function VoiceTrainingStep({ userId, profile, onComplete, twitterAnalysis }: VoiceTrainingStepProps) {
@@ -50,16 +49,8 @@ export function VoiceTrainingStep({ userId, profile, onComplete, twitterAnalysis
   useEffect(() => {
     if (twitterAnalysis?.voiceAnalysis) {
       const { voiceAnalysis } = twitterAnalysis;
-      const componentAnalysis: TwitterAnalysis = {
-        tweetCount: voiceAnalysis.tweetCount,
-        avgLength: voiceAnalysis.avgLength,
-        commonWords: voiceAnalysis.commonWords.slice(0, 5),
-        tone: voiceAnalysis.tone as 'professional' | 'casual' | 'technical' | 'friendly',
-        style: voiceAnalysis.style,
-        sampleTweets: voiceAnalysis.sampleTweets
-      };
-      setAnalysis(componentAnalysis);
-      console.log('Voice analysis loaded from parent component');
+      setAnalysis(voiceAnalysis.voiceProfile);
+      console.log(`Voice analysis loaded from parent component: ${voiceAnalysis.message}`);
     }
   }, [twitterAnalysis]);
 
@@ -84,28 +75,24 @@ export function VoiceTrainingStep({ userId, profile, onComplete, twitterAnalysis
         
         // Convert API response to component format
         const componentAnalysis: TwitterAnalysis = {
-          tweetCount: analysis.recentTweets.length,
-          avgLength: analysis.writingStyle.avgLength,
-          commonWords: analysis.writingStyle.commonWords.slice(0, 5),
-          tone: analysis.writingStyle.tone,
-          style: analysis.writingStyle.style,
-          sampleTweets: analysis.recentTweets.slice(0, 3).map((tweet: any) => tweet.text)
+          sampleTweets: analysis.recentTweets.slice(0, 3).map((tweet: any) => tweet.text),
+          voicePersonality: analysis.writingStyle.voicePersonality || 'Professional and informative with a helpful tone',
+          communicationStyle: analysis.writingStyle.communicationStyle || 'Clear and direct communication with focus on value-driven content',
+          interests: analysis.writingStyle.interests || ['technology', 'business']
         };
         
         setAnalysis(componentAnalysis);
       } else if (responseData.canFallback) {
         // Twitter credentials not available, use mock analysis
         const mockAnalysis: TwitterAnalysis = {
-          tweetCount: 25,
-          avgLength: 140,
-          commonWords: ["professional", "development", "technology", "innovation", "business"],
-          tone: "professional",
-          style: ["informative", "value-adding"],
           sampleTweets: [
             "Looking forward to exploring new opportunities in tech innovation this year.",
             "What are your thoughts on the latest developments in professional development?",
             "Excited to share insights from recent business strategy discussions."
-          ]
+          ],
+          voicePersonality: "Professional and engaging with a focus on innovation and growth",
+          communicationStyle: "Thoughtful and encouraging, often asks questions to spark meaningful discussions",
+          interests: ["technology", "innovation", "professional development", "business strategy"]
         };
         
         setAnalysis(mockAnalysis);
@@ -141,10 +128,9 @@ export function VoiceTrainingStep({ userId, profile, onComplete, twitterAnalysis
               public_metrics: { like_count: 0, retweet_count: 0, reply_count: 0 }
             })),
             writingStyle: {
-              avgLength: analysis.avgLength,
-              commonWords: analysis.commonWords,
-              tone: analysis.tone,
-              style: analysis.style
+              voicePersonality: analysis.voicePersonality,
+              communicationStyle: analysis.communicationStyle,
+              interests: analysis.interests
             },
             engagementPatterns: {
               avgLikes: 10,
@@ -152,7 +138,7 @@ export function VoiceTrainingStep({ userId, profile, onComplete, twitterAnalysis
               avgReplies: 3,
               bestPerformingTweets: []
             },
-            topicInterests: analysis.commonWords
+            topicInterests: analysis.interests
           }
         }),
       });
@@ -280,46 +266,41 @@ export function VoiceTrainingStep({ userId, profile, onComplete, twitterAnalysis
                 Your Twitter Voice Analysis
               </CardTitle>
               <CardDescription>
-                Based on your last {analysis.tweetCount} tweets
+                {twitterAnalysis?.voiceAnalysis ? 
+                  `${twitterAnalysis.voiceAnalysis.message}` : 
+                  'Based on your recent tweets'
+                }
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="font-medium mb-2">Writing Style</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {analysis.style.map((style) => (
-                        <Badge key={style} variant="secondary">{style}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium mb-2">Tone</h4>
-                    <Badge variant="outline" className="capitalize">{analysis.tone}</Badge>
-                  </div>
+              <div className="space-y-6">
+                <div className="border border-border rounded-lg p-4 bg-card">
+                  <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Voice Personality</h4>
+                  <p className="text-base font-medium italic leading-relaxed">
+                    "{analysis.voicePersonality}"
+                  </p>
+                </div>
+                
+                <div className="border border-border rounded-lg p-4 bg-card">
+                  <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Communication Style</h4>
+                  <p className="text-base font-medium italic leading-relaxed">
+                    "{analysis.communicationStyle}"
+                  </p>
                 </div>
 
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="font-medium mb-2">Common Topics</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {analysis.commonWords.map((word) => (
-                        <Badge key={word} variant="secondary">{word}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium mb-2">Average Length</h4>
-                    <Badge variant="outline">{analysis.avgLength} characters</Badge>
+                <div className="border border-border rounded-lg p-4 bg-card">
+                  <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Key Interests</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.interests.map((interest) => (
+                      <Badge key={interest} variant="secondary" className="text-base font-medium">{interest}</Badge>
+                    ))}
                   </div>
                 </div>
               </div>
 
+
               <div>
-                <h4 className="font-medium mb-2">Sample Tweets</h4>
+                <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Sample Tweets</h4>
                 <div className="space-y-2">
                   {analysis.sampleTweets.map((tweet, index) => (
                     <div key={index} className="p-3 bg-muted rounded-lg text-sm italic">

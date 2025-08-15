@@ -19,14 +19,15 @@ interface TwitterAnalysisData {
     message: string;
   };
   voiceAnalysis: {
-    tweetCount: number;
-    avgLength: number;
-    commonWords: string[];
-    tone: string;
-    style: string[];
-    sampleTweets: string[];
-    interests: string[];
-    engagementRate: number;
+    postsAnalyzed: number;
+    voiceProfile: {
+      sampleTweets: string[];
+      voicePersonality: string;
+      communicationStyle: string;
+      interests: string[];
+    };
+    hasRealData: boolean;
+    message: string;
   };
 }
 

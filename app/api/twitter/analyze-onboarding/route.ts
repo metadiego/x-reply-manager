@@ -14,14 +14,10 @@ interface TopicSuggestion {
 }
 
 interface VoiceAnalysis {
-  tweetCount: number;
-  avgLength: number;
-  commonWords: string[];
-  tone: 'professional' | 'casual' | 'technical' | 'friendly';
-  style: string[];
   sampleTweets: string[];
-  interests: string[];
-  engagementRate: number;
+  voicePersonality: string;  // e.g., "thoughtful and analytical with a warm undertone"
+  communicationStyle: string;  // e.g., "direct but encouraging, uses questions to engage"
+  interests: string[];  // e.g., ["ai", "entrepreneurship"]
 }
 
 interface CombinedAnalysisResponse {
@@ -33,7 +29,12 @@ interface CombinedAnalysisResponse {
     hasRealData: boolean;
     message: string;
   };
-  voiceAnalysis: VoiceAnalysis;
+  voiceAnalysis: {
+    postsAnalyzed: number;
+    voiceProfile: VoiceAnalysis;
+    hasRealData: boolean;
+    message: string;
+  };
 }
 
 // Initialize OpenAI client
@@ -69,7 +70,12 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
           hasRealData: false,
           message: 'Twitter account not connected. Showing default suggestions.'
         },
-        voiceAnalysis: getDefaultVoiceAnalysis()
+        voiceAnalysis: {
+          postsAnalyzed: 0,
+          voiceProfile: getDefaultVoiceAnalysis(),
+          hasRealData: false,
+          message: 'Twitter account not connected. Using default voice profile.'
+        }
       });
     }
 
@@ -92,7 +98,12 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
           hasRealData: false,
           message: 'No recent tweets found. Showing default suggestions.'
         },
-        voiceAnalysis: getDefaultVoiceAnalysis()
+        voiceAnalysis: {
+          postsAnalyzed: 0,
+          voiceProfile: getDefaultVoiceAnalysis(),
+          hasRealData: false,
+          message: 'No recent tweets found. Using default voice profile.'
+        }
       });
     }
 
@@ -132,7 +143,12 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
         hasRealData: true,
         message: `Analyzed ${userTweets.length} recent tweets to generate personalized insights.`
       },
-      voiceAnalysis
+      voiceAnalysis: {
+        postsAnalyzed: userTweets.length,
+        voiceProfile: voiceAnalysis,
+        hasRealData: true,
+        message: `Analyzed ${userTweets.length} recent tweets to create your personalized voice profile.`
+      }
     });
 
   } catch (error: any) {
@@ -149,7 +165,12 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
           hasRealData: false,
           message: 'Twitter API rate limit reached. Showing default suggestions.'
         },
-        voiceAnalysis: getDefaultVoiceAnalysis()
+        voiceAnalysis: {
+          postsAnalyzed: 0,
+          voiceProfile: getDefaultVoiceAnalysis(),
+          hasRealData: false,
+          message: 'Twitter API rate limit reached. Using default voice profile.'
+        }
       });
     }
 
@@ -162,7 +183,12 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
         hasRealData: false,
         message: 'Error analyzing tweets. Showing default suggestions.'
       },
-      voiceAnalysis: getDefaultVoiceAnalysis()
+      voiceAnalysis: {
+        postsAnalyzed: 0,
+        voiceProfile: getDefaultVoiceAnalysis(),
+        hasRealData: false,
+        message: 'Error analyzing tweets. Using default voice profile.'
+      }
     });
   }
 }
@@ -304,32 +330,21 @@ async function analyzeVoiceStyle(tweets: TwitterTweet[]): Promise<VoiceAnalysis>
     // Create a comprehensive prompt for voice analysis
     const prompt = `
       Analyze the writing style, tone, and voice characteristics of this user based on their recent tweets. 
-      Provide a detailed analysis that will help AI systems write replies in their style.
+      Provide a detailed qualitative analysis that captures their unique voice and communication approach.
 
       User's recent tweets:
       ${tweetSample}
 
       Analyze and provide:
-      1. **Tone**: Choose ONE primary tone that best describes their overall writing style
-      2. **Style characteristics**: List 3-5 specific style traits (e.g., "concise", "analytical", "conversational")
-      3. **Common themes/interests**: Identify 3-5 topics they frequently discuss
-      4. **Key vocabulary**: List 8-10 words/phrases they use frequently (excluding common stop words)
-      5. **Writing patterns**: Describe how they structure their thoughts, use of questions, links, etc.
+      1. **Voice Personality**: A 1-2 sentence description of their overall personality and tone as expressed through writing (e.g., "thoughtful and analytical with a warm undertone", "energetic and optimistic with a focus on actionable insights")
+      2. **Communication Style**: A 1-2 sentence description of how they communicate and engage (e.g., "direct but encouraging, uses questions to engage", "conversational storyteller who shares personal experiences to illustrate points")
+      3. **Key Interests**: 3-5 main topics or themes they frequently discuss or show expertise in
 
       Return as JSON with this exact structure:
       {
-        "tone": "professional" | "casual" | "technical" | "friendly" | "analytical" | "creative",
-        "style": ["trait1", "trait2", "trait3"],
-        "interests": ["interest1", "interest2", "interest3"],
-        "commonWords": ["word1", "word2", "word3", "word4", "word5"],
-        "writingPatterns": {
-          "usesQuestions": boolean,
-          "sharesLinks": boolean,
-          "usesMentions": boolean,
-          "usesHashtags": boolean,
-          "avgSentenceStyle": "short" | "medium" | "long",
-          "voiceDescription": "2-3 sentence description of their unique voice"
-        }
+        "voicePersonality": "1-2 sentence personality description",
+        "communicationStyle": "1-2 sentence communication approach description", 
+        "interests": ["interest1", "interest2", "interest3", "interest4"]
       }
     `;
 
@@ -368,14 +383,10 @@ async function analyzeVoiceStyle(tweets: TwitterTweet[]): Promise<VoiceAnalysis>
 
     // Map OpenAI response to our VoiceAnalysis format
     const voiceAnalysis: VoiceAnalysis = {
-      tweetCount: tweets.length,
-      avgLength: Math.round(tweetTexts.reduce((sum, text) => sum + text.length, 0) / tweets.length),
-      commonWords: Array.isArray(parsedResponse.commonWords) ? parsedResponse.commonWords : [],
-      tone: parsedResponse.tone || 'professional',
-      style: Array.isArray(parsedResponse.style) ? parsedResponse.style : ['informative'],
       sampleTweets: tweetTexts.slice(0, 3),
-      interests: Array.isArray(parsedResponse.interests) ? parsedResponse.interests : [],
-      engagementRate: calculateBasicEngagementRate(tweets)
+      voicePersonality: parsedResponse.voicePersonality || 'Professional and informative with a helpful tone',
+      communicationStyle: parsedResponse.communicationStyle || 'Clear and direct communication with focus on value-driven content',
+      interests: Array.isArray(parsedResponse.interests) ? parsedResponse.interests : ['technology', 'business']
     };
 
     console.log('OpenAI voice analysis completed successfully');
@@ -390,39 +401,23 @@ async function analyzeVoiceStyle(tweets: TwitterTweet[]): Promise<VoiceAnalysis>
 // Fallback programmatic voice analysis (simplified version of original)
 function getProgrammaticVoiceAnalysis(tweets: TwitterTweet[]): VoiceAnalysis {
   const tweetTexts = tweets.map(t => t.text);
+  const tone = detectTone(tweets);
+  const style = detectStyle(tweets);
+  const interests = extractInterests(tweets);
+  
+  // Generate descriptive voice personality based on detected patterns
+  const voicePersonality = generateVoicePersonality(tone, style);
+  const communicationStyle = generateCommunicationStyle(style, tweets);
   
   return {
-    tweetCount: tweets.length,
-    avgLength: Math.round(tweetTexts.reduce((sum, text) => sum + text.length, 0) / tweets.length),
-    commonWords: extractCommonWords(tweets),
-    tone: detectTone(tweets),
-    style: detectStyle(tweets),
     sampleTweets: tweetTexts.slice(0, 3),
-    interests: extractInterests(tweets),
-    engagementRate: calculateBasicEngagementRate(tweets)
+    voicePersonality,
+    communicationStyle,
+    interests
   };
 }
 
 // Helper functions for voice analysis
-function extractCommonWords(tweets: TwitterTweet[]): string[] {
-  const wordFrequency: Record<string, number> = {};
-  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'what', 'which', 'who', 'when', 'where', 'why', 'how', 'all', 'each', 'every', 'both', 'few', 'more', 'most', 'some', 'such', 'no', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'rt', 'via']);
-  
-  tweets.forEach(tweet => {
-    const words = tweet.text.toLowerCase().split(/\s+/);
-    words.forEach((word: string) => {
-      const cleanWord = word.replace(/[^a-z0-9]/g, '');
-      if (cleanWord.length > 3 && !stopWords.has(cleanWord) && !cleanWord.startsWith('http')) {
-        wordFrequency[cleanWord] = (wordFrequency[cleanWord] || 0) + 1;
-      }
-    });
-  });
-  
-  return Object.entries(wordFrequency)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([word]) => word);
-}
 
 function detectTone(tweets: TwitterTweet[]): 'professional' | 'casual' | 'technical' | 'friendly' {
   let professionalScore = 0;
@@ -504,17 +499,40 @@ function extractInterests(tweets: TwitterTweet[]): string[] {
   return Array.from(interests);
 }
 
-function calculateBasicEngagementRate(tweets: TwitterTweet[]): number {
-  if (tweets.length === 0) return 0;
+function generateVoicePersonality(tone: string, style: string[]): string {
+  const toneDescriptions = {
+    'professional': 'Professional and authoritative',
+    'casual': 'Relaxed and approachable',
+    'technical': 'Analytical and detail-oriented',
+    'friendly': 'Warm and engaging'
+  };
   
-  // Simple engagement calculation based on available data
-  // Since metrics might not be available in all tweet objects, we'll calculate a basic score
-  const totalEngagement = tweets.reduce((sum, tweet) => {
-    const publicMetrics = (tweet as any).public_metrics || {};
-    return sum + (publicMetrics.like_count || 0) + (publicMetrics.retweet_count || 0) + (publicMetrics.reply_count || 0);
-  }, 0);
+  const styleContext = style.includes('inquisitive') ? ' with a curious and questioning approach' :
+                      style.includes('sharing') ? ' who enjoys sharing valuable resources' :
+                      style.includes('conversational') ? ' with a social and interactive style' :
+                      ' with a focused and informative approach';
   
-  return Math.round(totalEngagement / tweets.length);
+  return `${toneDescriptions[tone as keyof typeof toneDescriptions] || 'Professional and informative'}${styleContext}`;
+}
+
+function generateCommunicationStyle(style: string[], tweets: TwitterTweet[]): string {
+  const hasQuestions = tweets.some(t => t.text.includes('?'));
+  const hasLinks = tweets.some(t => t.text.includes('http'));
+  const hasMentions = tweets.some(t => t.text.includes('@'));
+  
+  let styleDesc = 'Communicates through ';
+  
+  if (hasQuestions && style.includes('inquisitive')) {
+    styleDesc += 'thoughtful questions and engaging discussions';
+  } else if (hasLinks && style.includes('sharing')) {
+    styleDesc += 'curated content and valuable resource sharing';
+  } else if (hasMentions && style.includes('conversational')) {
+    styleDesc += 'active networking and community engagement';
+  } else {
+    styleDesc += 'clear and informative content delivery';
+  }
+  
+  return styleDesc + ', focusing on providing value to the audience';
 }
 
 // Default fallback suggestions
@@ -557,13 +575,9 @@ function getDefaultTopicSuggestions(): TopicSuggestion[] {
 
 function getDefaultVoiceAnalysis(): VoiceAnalysis {
   return {
-    tweetCount: 0,
-    avgLength: 140,
-    commonWords: ["professional", "development", "technology", "innovation", "business"],
-    tone: "professional",
-    style: ["informative", "value-adding"],
     sampleTweets: [],
-    interests: ["technology", "business"],
-    engagementRate: 0
+    voicePersonality: "Professional and informative with a helpful tone",
+    communicationStyle: "Clear and direct communication with focus on value-driven content",
+    interests: ["technology", "business", "professional development"]
   };
 }
