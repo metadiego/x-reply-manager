@@ -17,14 +17,14 @@ interface MonitoringTarget {
   status: 'active' | 'paused' | 'archived';
   created_at: string;
   updated_at: string;
-  topic_targets?: Array<{
+  topic_targets?: {
     id: string;
     keywords: string[];
     hashtags: string[];
     exclude_keywords: string[];
     min_engagement: number;
     languages: string[];
-  }>;
+  };
   twitter_list_targets?: Array<{
     id: string;
     twitter_list_id: string;
@@ -68,20 +68,51 @@ export function TargetsManagement({
   };
 
   const handleStatusChange = async (targetId: string, newStatus: 'active' | 'paused' | 'archived') => {
-    // TODO: Implement API call to update target status
-    setTargets(prev => prev.map(t => 
-      t.id === targetId ? { ...t, status: newStatus, updated_at: new Date().toISOString() } : t
-    ));
+    try {
+      const response = await fetch(`/api/targets?id=${targetId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update target status');
+      }
+
+      const { target } = await response.json();
+      setTargets(prev => prev.map(t => t.id === targetId ? target : t));
+    } catch (error: any) {
+      console.error('Error updating target status:', error);
+      alert(`Failed to update target status: ${error.message}`);
+    }
   };
 
   const handleDeleteTarget = async (targetId: string) => {
-    // TODO: Implement API call to delete target
-    setTargets(prev => prev.filter(t => t.id !== targetId));
+    if (!confirm('Are you sure you want to delete this target? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/targets?id=${targetId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete target');
+      }
+
+      setTargets(prev => prev.filter(t => t.id !== targetId));
+    } catch (error: any) {
+      console.error('Error deleting target:', error);
+      alert(`Failed to delete target: ${error.message}`);
+    }
   };
 
   const renderTarget = (target: MonitoringTarget) => {
     const stats = getTargetStats(target.id);
-    const config = target.target_type === 'topic' ? target.topic_targets?.[0] : target.twitter_list_targets?.[0];
+    const config = target.target_type === 'topic' ? target.topic_targets : target.twitter_list_targets?.[0];
 
     return (
       <Card key={target.id} className="relative">

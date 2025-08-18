@@ -297,17 +297,43 @@ export class TwitterApiService {
       },
     });
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Twitter API authentication failed. Please reconnect your Twitter account.');
+    // Parse response body once
+    let data: any;
+    const responseText = await response.text();
+    
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      if (!response.ok) {
+        throw new Error(`Twitter API error (${response.status} ${response.statusText}): Invalid JSON response - ${responseText}`);
       }
-      if (response.status === 429) {
-        throw new Error('Twitter API rate limit exceeded. Please try again later.');
-      }
-      throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to parse Twitter API response: ${responseText}`);
     }
 
-    const data = await response.json();
+    if (!response.ok) {
+      // Extract error details from the parsed data
+      let errorDetail = '';
+      
+      if (data.errors && data.errors.length > 0) {
+        errorDetail = data.errors.map((e: any) => 
+          `${e.message || e.detail || ''} (${e.title || e.type || 'Unknown error'})`
+        ).join('; ');
+      } else if (data.error) {
+        errorDetail = data.error;
+      } else if (data.detail) {
+        errorDetail = data.detail;
+      } else {
+        errorDetail = JSON.stringify(data);
+      }
+
+      if (response.status === 401) {
+        throw new Error(`Twitter API authentication failed: ${errorDetail || 'Please reconnect your Twitter account.'}`);
+      }
+      if (response.status === 429) {
+        throw new Error(`Twitter API rate limit exceeded: ${errorDetail || 'Please try again later.'}`);
+      }
+      throw new Error(`Twitter API error (${response.status} ${response.statusText}): ${errorDetail || 'No additional details available'}`);
+    }
     
     if (data.errors && data.errors.length > 0) {
       throw new Error(`Twitter API error: ${data.errors[0].detail}`);

@@ -4,6 +4,10 @@ import TwitterApiService, { TwitterTweet } from '@/lib/twitter-api';
 import OpenAI from 'openai';
 
 // Types for the combined analysis response
+
+// TODO: change this to 20 once we finish testing
+const MIN_TWEETS_FOR_ANALYSIS = 10;
+
 interface TopicSuggestion {
   name: string;
   keywords: string[];
@@ -84,8 +88,7 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
 
     // Fetch user's recent tweets (fetch more for better analysis)
     console.log(`Fetching tweets for @${profile.twitter_handle} for combined analysis`);
-    // TODO: change this to 20 once we finish testing
-    const userTweets = await twitterService.getUserTweetsByUsername(profile.twitter_handle, 10);
+    const userTweets = await twitterService.getUserTweetsByUsername(profile.twitter_handle, MIN_TWEETS_FOR_ANALYSIS);
 
     if (userTweets.length === 0) {
       return NextResponse.json({

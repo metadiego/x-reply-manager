@@ -25,7 +25,7 @@ export function TargetPerformance({
     totalPosts: stats.postsFound,
     repliesGenerated: stats.repliesGenerated,
     avgEngagement: Math.floor(Math.random() * 100) + 50,
-    topKeywords: target.topic_targets?.[0]?.keywords?.slice(0, 5) || [],
+    topKeywords: target.topic_targets?.keywords?.slice(0, 5) || [],
     recentActivity: [
       { date: '2025-01-29', posts: 12, replies: 5 },
       { date: '2025-01-28', posts: 8, replies: 3 },
@@ -141,15 +141,15 @@ export function TargetPerformance({
                   </div>
                 </div>
 
-                {target.target_type === 'topic' && target.topic_targets?.[0] && (
+                {target.target_type === 'topic' && target.topic_targets && (
                   <div>
                     <h4 className="font-medium mb-2">Search Configuration</h4>
                     <div className="space-y-3">
-                      {target.topic_targets[0].keywords?.length > 0 && (
+                      {target.topic_targets.keywords?.length > 0 && (
                         <div>
                           <p className="text-xs font-medium text-muted-foreground mb-1">Keywords</p>
                           <div className="flex flex-wrap gap-1">
-                            {target.topic_targets[0].keywords.map((keyword: string) => (
+                            {target.topic_targets.keywords.map((keyword: string) => (
                               <Badge key={keyword} variant="secondary" className="text-xs">
                                 {keyword}
                               </Badge>
@@ -158,11 +158,11 @@ export function TargetPerformance({
                         </div>
                       )}
 
-                      {target.topic_targets[0].hashtags?.length > 0 && (
+                      {target.topic_targets.hashtags?.length > 0 && (
                         <div>
                           <p className="text-xs font-medium text-muted-foreground mb-1">Hashtags</p>
                           <div className="flex flex-wrap gap-1">
-                            {target.topic_targets[0].hashtags.map((hashtag: string) => (
+                            {target.topic_targets.hashtags.map((hashtag: string) => (
                               <Badge key={hashtag} variant="secondary" className="text-xs">
                                 {hashtag}
                               </Badge>
@@ -171,10 +171,10 @@ export function TargetPerformance({
                         </div>
                       )}
 
-                      {target.topic_targets[0].min_engagement > 0 && (
+                      {target.topic_targets.min_engagement > 0 && (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Min Engagement:</span>
-                          <span>{target.topic_targets[0].min_engagement}</span>
+                          <span>{target.topic_targets.min_engagement}</span>
                         </div>
                       )}
                     </div>
