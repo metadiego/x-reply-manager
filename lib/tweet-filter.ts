@@ -1,3 +1,5 @@
+import { OpenAI } from 'openai';
+
 interface Tweet {
   id: string;
   text: string;
@@ -17,18 +19,43 @@ interface FilteredTweet extends Tweet {
   score: number;
 }
 
+interface TweetScores {
+  score: number;
+  reasoning?: string;
+}
+
 export class TweetFilter {
+  private openai: OpenAI;
+
+  constructor() {
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
   
   /**
    * Filter tweets for quality and score them for reply worthiness
    */
-  filterForQuality(tweets: Tweet[]): FilteredTweet[] {
-    return tweets
-      .filter(tweet => this.isNotJunk(tweet))
-      .map(tweet => ({
+  async filterForQuality(tweets: Tweet[]): Promise<FilteredTweet[]> {
+    // Filter out tweets older than 24 hours
+    const recentTweets = tweets.filter(tweet => {
+      const hoursSincePost = (Date.now() - new Date(tweet.created_at).getTime()) / (1000 * 60 * 60);
+      return hoursSincePost <= 24;
+    });
+
+    // Filter out junk tweets
+    const nonJunkTweets = recentTweets.filter(tweet => this.isNotJunk(tweet));
+
+    // Score tweets in parallel for better performance
+    const scoredTweets = await Promise.all(
+      nonJunkTweets.map(async (tweet) => ({
         ...tweet,
-        score: this.scoreForReply(tweet)
+        score: await this.scoreForReply(tweet)
       }))
+    );
+
+    return scoredTweets
+      .filter(tweet => tweet.score > 0.5)
       .sort((a, b) => b.score - a.score) // Sort by score descending
       .slice(0, 10); // Take top 10
   }
@@ -37,12 +64,6 @@ export class TweetFilter {
    * Determine if a tweet is junk and should be filtered out
    */
   private isNotJunk(tweet: Tweet): boolean {
-    // Filter out tweets that are too old (> 24 hours)
-    const hoursSincePost = (Date.now() - new Date(tweet.created_at).getTime()) / (1000 * 60 * 60);
-    if (hoursSincePost > 24) {
-      return false;
-    }
-
     // Filter out very short tweets (likely spam or low quality)
     if (tweet.text.length < 20) {
       return false;
@@ -62,94 +83,87 @@ export class TweetFilter {
   }
 
   /**
-   * Score a tweet for reply worthiness (0-100)
+   * Score a tweet for reply worthiness (0-100) using AI
    */
-  private scoreForReply(tweet: Tweet): number {
-    let score = 0;
-
-    // Recency score (25% weight) - newer is better
-    const hoursSincePost = (Date.now() - new Date(tweet.created_at).getTime()) / (1000 * 60 * 60);
-    const recencyScore = Math.max(0, (24 - hoursSincePost) / 24) * 25;
-    score += recencyScore;
-
-    // Engagement score (35% weight)
-    const engagement = tweet.public_metrics.like_count + 
-                      tweet.public_metrics.retweet_count * 2 + 
-                      tweet.public_metrics.reply_count * 1.5;
-    const engagementScore = Math.min(engagement / 100, 1) * 35;
-    score += engagementScore;
-
-    // Content quality score (20% weight)
-    score += this.scoreContentQuality(tweet.text) * 20;
-
-    // Interaction opportunity score (20% weight)
-    score += this.scoreInteractionOpportunity(tweet) * 20;
-
-    return Math.round(score);
+  private async scoreForReply(tweet: Tweet): Promise<number> {
+    const aiScores = await this.scoreTweet(tweet);
+    return Math.round(aiScores.score * 100); // Convert 0-1 to 0-100 scale
   }
 
   /**
-   * Score content quality based on text characteristics
+   * Score tweet using OpenAI API for reply worthiness
    */
-  private scoreContentQuality(text: string): number {
-    let quality = 0.5; // Base score
+  private async scoreTweet(tweet: Tweet): Promise<TweetScores> {
+    try {
+      const hoursSincePost = (Date.now() - new Date(tweet.created_at).getTime()) / (1000 * 60 * 60);
+      const totalEngagement = tweet.public_metrics.like_count +
+                             tweet.public_metrics.retweet_count +
+                             tweet.public_metrics.reply_count;
 
-    // Questions get bonus (encourage engagement)
-    if (text.includes('?')) {
-      quality += 0.3;
+      const prompt = `
+        Analyze this tweet and provide a single reply worthiness score (0-1) considering ALL of these factors:
+
+        1. RECENCY (20% weight): ${hoursSincePost.toFixed(1)} hours old (newer is better, max 24h)
+        2. ENGAGEMENT (35% weight): ${tweet.public_metrics.like_count} likes, ${tweet.public_metrics.retweet_count} retweets, ${tweet.public_metrics.reply_count} replies (total: ${totalEngagement})
+        3. CONTENT QUALITY (25% weight): thoughtfulness, clarity, professional language, engaging questions
+        4. INTERACTION OPPORTUNITY (20% weight): potential for meaningful reply
+
+        Additional context:
+        - Tweet text: "${tweet.text}"
+        - Character count: ${tweet.text.length}
+        - Is a reply: ${tweet.in_reply_to_user_id ? 'Yes' : 'No'}
+        - Sweet spot for engagement is 5-50 total interactions
+        - Original posts (not replies) are preferred
+
+        Return ONLY a JSON object with a combined score considering all weights:
+        {"score": 0.75, "reasoning": "Brief explanation"}
+      `;
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a social media analyst expert at identifying high-value tweets for engagement. Provide a single weighted score as requested in JSON format only.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 100,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No response from OpenAI');
+      }
+
+      // Clean the content - remove markdown code blocks if present
+      const cleanContent = content
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
+
+      const result = JSON.parse(cleanContent) as TweetScores;
+
+      // Validate score is in range
+      result.score = Math.max(0, Math.min(1, result.score));
+
+      console.log('Tweet:', tweet);
+      console.log('Score:', result.score);
+      console.log('Reasoning:', result.reasoning);
+
+      return result;
+    } catch (error) {
+      console.error('Error scoring tweet with AI:', error);
+      // Fallback to default score if AI fails
+      return {
+        score: 0.5,
+        reasoning: 'Fallback score due to AI error'
+      };
     }
-
-    // Thoughtful content indicators
-    const thoughtfulWords = [
-      'think', 'believe', 'opinion', 'experience', 'learn', 'discover',
-      'insight', 'strategy', 'approach', 'solution', 'challenge'
-    ];
-    const thoughtfulCount = thoughtfulWords.filter(word => 
-      text.toLowerCase().includes(word)
-    ).length;
-    quality += Math.min(thoughtfulCount * 0.1, 0.3);
-
-    // Professional language gets slight bonus
-    if (this.containsProfessionalLanguage(text)) {
-      quality += 0.1;
-    }
-
-    // Penalty for excessive caps or exclamation
-    if (text.toUpperCase() === text || text.split('!').length > 3) {
-      quality -= 0.2;
-    }
-
-    return Math.max(0, Math.min(1, quality));
-  }
-
-  /**
-   * Score interaction opportunity
-   */
-  private scoreInteractionOpportunity(tweet: Tweet): number {
-    let opportunity = 0.5; // Base score
-
-    // Original posts (not replies) get bonus
-    if (!tweet.in_reply_to_user_id) {
-      opportunity += 0.3;
-    }
-
-    // Moderate engagement is good (not too high to be overwhelming)
-    const totalEngagement = tweet.public_metrics.like_count + 
-                           tweet.public_metrics.retweet_count + 
-                           tweet.public_metrics.reply_count;
-    
-    if (totalEngagement >= 5 && totalEngagement <= 50) {
-      opportunity += 0.2; // Sweet spot for engagement
-    } else if (totalEngagement > 100) {
-      opportunity -= 0.1; // Too much activity, hard to get noticed
-    }
-
-    // Length bonus for substantial content
-    if (tweet.text.length > 100 && tweet.text.length < 250) {
-      opportunity += 0.1;
-    }
-
-    return Math.max(0, Math.min(1, opportunity));
   }
 
   /**
@@ -179,20 +193,6 @@ export class TweetFilter {
     return (linkCount + mentionCount) > words.length * 0.5;
   }
 
-  /**
-   * Check for professional language
-   */
-  private containsProfessionalLanguage(text: string): boolean {
-    const professionalWords = [
-      'strategy', 'analysis', 'business', 'market', 'industry', 'innovation',
-      'technology', 'development', 'research', 'insights', 'professional',
-      'expertise', 'leadership', 'management', 'growth', 'optimization'
-    ];
-
-    return professionalWords.some(word => 
-      text.toLowerCase().includes(word)
-    );
-  }
 
   /**
    * Get statistics about filtering results

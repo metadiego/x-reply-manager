@@ -19,8 +19,6 @@ export default async function OnboardingPage() {
     .eq('id', user.sub)
     .maybeSingle(); // Use maybeSingle to avoid errors if profile doesn't exist
 
-  console.log('Onboarding page - User profile check:', { profile, profileError });
-
   // Get the full user object to extract Twitter metadata
   const { data: userData } = await supabase.auth.getUser();
   const fullUser = userData?.user;
@@ -33,7 +31,6 @@ export default async function OnboardingPage() {
     const twitterData = fullUser.user_metadata;
     twitterUserId = twitterData.provider_id || twitterData.sub;
     twitterHandle = twitterData.user_name || twitterData.preferred_username;
-    console.log('Extracted Twitter data:', { twitterUserId, twitterHandle });
   }
 
   // If no profile exists, create one now (fallback for if the trigger didn't work)
@@ -83,8 +80,6 @@ export default async function OnboardingPage() {
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.sub)
     .eq('status', 'active');
-
-  console.log('Onboarding page - Targets count check:', { targetsCount, targetsError });
 
   // If user has completed all setup, redirect to home
   // Note: Twitter connection check removed since all users authenticate via Twitter OAuth

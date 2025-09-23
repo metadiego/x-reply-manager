@@ -30,8 +30,6 @@ export async function GET(request: NextRequest) {
         const twitterUserId = twitterData.provider_id || twitterData.sub;
         const twitterHandle = twitterData.user_name || twitterData.preferred_username;
         
-        console.log('Extracted Twitter data:', { twitterUserId, twitterHandle });
-        
         if (twitterUserId && twitterHandle) {
           // Create or update profile with Twitter information
           if (!existingProfile) {

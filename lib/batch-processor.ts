@@ -219,25 +219,31 @@ export class BatchProcessor {
       };
 
       // Fetch tweets via Search Broker
-      const cacheStatsBefore = this.searchBroker.getCacheStats();
+      // const cacheStatsBefore = this.searchBroker.getCacheStats();
       const tweets = await this.searchBroker.fetchTweets(topicConfigWithTargetId, userState.fetch_size);
-      const cacheStatsAfter = this.searchBroker.getCacheStats();
+      // const cacheStatsAfter = this.searchBroker.getCacheStats();
       
-      result.cacheHit = cacheStatsAfter.hits > cacheStatsBefore.hits;
+      // result.cacheHit = cacheStatsAfter.hits > cacheStatsBefore.hits;
       result.tweetsProcessed = tweets.length;
 
       // Filter tweets for quality
-      const filteredTweets = this.tweetFilter.filterForQuality(tweets);
+      const filteredTweets = await this.tweetFilter.filterForQuality(tweets);
       console.log(`BatchProcessor: Filtered ${tweets.length} tweets to ${filteredTweets.length} quality tweets`);
 
       // Take up to user's remaining quota
       const tweetsToProcess = filteredTweets.slice(0, userState.replies_left_today);
       
+      // TODO: we need to generate the replies here, not just store the posts.
+      // TODO: we need to check why the search broker is not properly caching the results.
+
       // Store curated posts for later reply generation
       if (tweetsToProcess.length > 0) {
         await this.storeCuratedPosts(userId, tweetsToProcess, currentTarget.id);
         result.repliesGenerated = tweetsToProcess.length;
       }
+
+      // TODO: we need to check logic for increasing/decreasing fetch size.
+      // TODO: we need to check logic for updating the user state.
 
       // Update user processing state
       await this.updateUserState(userId, {
@@ -246,6 +252,8 @@ export class BatchProcessor {
         replies_left_today: userState.replies_left_today - tweetsToProcess.length,
         fetch_size: this.adaptFetchSize(userState, filteredTweets.length)
       });
+
+      // TODO: we need to check logic for updating the target stats.
 
       // Update target tracking
       await this.updateTargetStats(currentTarget.id, tweets.length, filteredTweets.length);

@@ -164,42 +164,65 @@ export class SearchBroker {
    */
   async fetchTweets(target: TopicTarget, maxResults: number = 10): Promise<Tweet[]> {
     const query = this.buildQuery(target);
-    const canonical = this.canonicalize(query);
-    
-    console.log(`SearchBroker: Processing query for target "${target.monitoring_target_id}"`);
-    
-    // Check cache first
-    const cached = await this.getCached(canonical);
-    if (cached) {
-      this.stats.hits++;
-      this.updateHitRate();
-      console.log(`SearchBroker: Cache HIT for query (${cached.length} tweets)`);
-      return cached.slice(0, maxResults);
-    }
-    
-    // Cache miss - fetch from Twitter API
-    this.stats.misses++;
-    this.updateHitRate();
-    console.log(`SearchBroker: Cache MISS, fetching from Twitter API`);
-    
+
+    console.log(`SearchBroker: Fetching tweets for target "${target.monitoring_target_id}"`);
+
     try {
       const twitterApi = TwitterApiService.createAppOnlyService();
       const tweets = await twitterApi.searchTweets(query, {
         maxResults
       });
 
-      console.log('SearchBroker: Tweets:', tweets);
-      
-      // Cache the results for other users
-      await this.cacheResults(canonical, tweets);
-      
       console.log(`SearchBroker: Fetched ${tweets.length} tweets from Twitter API`);
-      return tweets.slice(0, maxResults);
+      return tweets;
     } catch (error) {
       console.error('SearchBroker: Error fetching from Twitter API:', error);
       throw error;
     }
   }
+
+  // TODO: this is the old fetchTweets function that uses caching, for now we are using the new fetchTweets function that does not use caching.
+  /**
+   * Fetch tweets for a topic target with intelligent caching
+   */
+  // async fetchTweets(target: TopicTarget, maxResults: number = 10): Promise<Tweet[]> {
+  //   const query = this.buildQuery(target);
+  //   const canonical = this.canonicalize(query);
+    
+  //   console.log(`SearchBroker: Processing query for target "${target.monitoring_target_id}"`);
+    
+  //   // Check cache first
+  //   const cached = await this.getCached(canonical);
+  //   if (cached) {
+  //     this.stats.hits++;
+  //     this.updateHitRate();
+  //     console.log(`SearchBroker: Cache HIT for query (${cached.length} tweets)`);
+  //     return cached.slice(0, maxResults);
+  //   }
+    
+  //   // Cache miss - fetch from Twitter API
+  //   this.stats.misses++;
+  //   this.updateHitRate();
+  //   console.log(`SearchBroker: Cache MISS, fetching from Twitter API`);
+    
+  //   try {
+  //     const twitterApi = TwitterApiService.createAppOnlyService();
+  //     const tweets = await twitterApi.searchTweets(query, {
+  //       maxResults
+  //     });
+
+  //     console.log('SearchBroker: Tweets:', tweets);
+      
+  //     // Cache the results for other users
+  //     await this.cacheResults(canonical, tweets);
+      
+  //     console.log(`SearchBroker: Fetched ${tweets.length} tweets from Twitter API`);
+  //     return tweets.slice(0, maxResults);
+  //   } catch (error) {
+  //     console.error('SearchBroker: Error fetching from Twitter API:', error);
+  //     throw error;
+  //   }
+  // }
 
   /**
    * Update hit rate calculation

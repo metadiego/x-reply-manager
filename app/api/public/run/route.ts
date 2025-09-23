@@ -29,7 +29,7 @@ interface ProcessingResponse {
 export async function POST(request: NextRequest): Promise<NextResponse<ProcessingResponse>> {
   try {
     // Verify API key for security
-    const apiKey = request.headers.get('X-API-Key');
+    const apiKey = request.headers.get('CRON-API-Key');
     if (!CRON_API_KEY || apiKey !== CRON_API_KEY) {
       return NextResponse.json({
         success: false,

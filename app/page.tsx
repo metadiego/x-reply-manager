@@ -319,45 +319,10 @@ export default async function HomePage() {
                       Set Up Targets
                     </Link>
                   </Button>
-                  <Button variant="outline">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Check Email
-                  </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
-
-          {/* Quick Actions */}
-          {allStepsCompleted && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>
-                  Manage your X engagement workflow
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex gap-4">
-                <Button asChild variant="outline">
-                  <Link href="/targets">
-                    <Target className="mr-2 h-4 w-4" />
-                    Manage Targets
-                  </Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/analytics">
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    View Analytics
-                  </Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/settings">
-                    Settings
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </main>
     </div>

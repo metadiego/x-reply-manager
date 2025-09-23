@@ -67,7 +67,7 @@ export default async function AnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Targets</CardTitle>
+            <CardTitle className="text-sm font-medium">Posts Reviewed</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -115,36 +115,6 @@ export default async function AnalyticsPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Weekly Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Weekly Summary</CardTitle>
-          <CardDescription>
-            Your engagement activity for the past 7 days
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-              <span className="font-medium">Total time saved</span>
-              <span className="font-bold">24 minutes</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-              <span className="font-medium">Replies posted</span>
-              <span className="font-bold">12 replies</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-              <span className="font-medium">Approval rate</span>
-              <span className="font-bold">72%</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-              <span className="font-medium">Posts reviewed</span>
-              <span className="font-bold">47 posts</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
         </div>
       </main>
     </div>

@@ -115,9 +115,6 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
       analyzeVoiceStyle(userTweets)
     ]);
 
-    console.log('Topic suggestions are:', topicSuggestions);
-    console.log('Voice analysis is:', voiceAnalysis);
-
     // Log API usage (Twitter API + 2 OpenAI calls)
     // Cost breakdown:
     // - Twitter API: ~$0.0001 per tweet
@@ -218,10 +215,11 @@ async function analyzePostsForTopics(tweets: TwitterTweet[]): Promise<TopicSugge
       ${tweetTexts}
 
       Guidelines:
-      - Identify REPEATING themes or topics across the user's tweets, then derive professional, industry-specific topics 
-        (e.g., "AI Ethics in Healthcare", not "Technology").
-      - Ensure topics are specific, repeated across multiple tweets, diverse, and actionable; infer conservatively if needed.
-      - Focus on sub-niches for value in expertise, connections, or visibility.
+      - Identify REPEATING themes or topics across the user's tweets, then derive professional, 
+      industry-specific topics (e.g., "AI Ethics", not "Technology").
+      - Ensure topics are specific, repeated across multiple tweets, diverse, and actionable; 
+      infer conservatively if needed.
+      - Focus on niches for value in expertise, connections, or visibility.
 
       For each topic, output as JSON object:
       - "name": Short, descriptive title.
@@ -243,7 +241,7 @@ async function analyzePostsForTopics(tweets: TwitterTweet[]): Promise<TopicSugge
     `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
