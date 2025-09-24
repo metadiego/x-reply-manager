@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { BatchProcessor } from '@/lib/batch-processor';
+import { replyGenerator } from '@/lib/reply-generator';
 
 // Daily budget limit in USD
 const DAILY_BUDGET_USD = parseFloat(process.env.DAILY_BUDGET_USD || '50');
@@ -190,7 +191,7 @@ async function logBatchUsage(batchStats: any): Promise<void> {
         user_id: null, // System operation (null for system operations)
         operation_type: 'batch_processing',
         posts_fetched: batchStats.totalTweets,
-        ai_tokens_used: 0, // TODO: Add when we implement AI reply generation
+        ai_tokens_used: batchStats.totalReplies * 550, // Rough estimate: ~500 input + 50 output tokens per reply
         estimated_cost_usd: estimateBatchCost(batchStats),
         replies_generated: batchStats.totalReplies
       });
@@ -210,14 +211,15 @@ function estimateBatchCost(batchStats: any): number {
   // Twitter API v2 pricing (approximate):
   // - Search tweets: ~$0.0133 per 1000 tweets
   // - Cache hits cost nothing
-  
+
   const tweetsActuallyFetched = Math.round(batchStats.totalTweets * (1 - batchStats.cacheHitRate));
   const twitterApiCost = (tweetsActuallyFetched / 1000) * 0.0133;
-  
-  // TODO: Add OpenAI costs when we implement reply generation
-  // const openaiCost = batchStats.totalReplies * 0.001; // ~$0.001 per reply
-  
-  return twitterApiCost;
+
+  // OpenAI GPT-4o-mini costs for reply generation
+  // Using the ReplyGenerator's cost estimation
+  const openaiCost = replyGenerator.estimateCost(batchStats.totalReplies);
+
+  return twitterApiCost + openaiCost;
 }
 
 /**

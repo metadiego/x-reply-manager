@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { SearchBroker } from './search-broker';
 import { TweetFilter } from './tweet-filter';
+import { ReplyGenerator } from './reply-generator';
 
 interface EligibleUser {
   user_id: string;
@@ -45,11 +46,13 @@ interface BatchProcessingStats {
 export class BatchProcessor {
   private searchBroker: SearchBroker;
   private tweetFilter: TweetFilter;
+  private replyGenerator: ReplyGenerator;
   private processingStats: BatchProcessingStats;
 
   constructor() {
     this.searchBroker = new SearchBroker();
     this.tweetFilter = new TweetFilter();
+    this.replyGenerator = new ReplyGenerator();
     this.processingStats = {
       usersProcessed: 0,
       totalTweets: 0,
@@ -232,15 +235,24 @@ export class BatchProcessor {
 
       // Take up to user's remaining quota
       const tweetsToProcess = filteredTweets.slice(0, userState.replies_left_today);
-      
-      // TODO: we need to generate the replies here, not just store the posts.
-      // TODO: we need to check why the search broker is not properly caching the results.
 
-      // Store curated posts for later reply generation
+      // Store curated posts and generate replies
       if (tweetsToProcess.length > 0) {
-        await this.storeCuratedPosts(userId, tweetsToProcess, currentTarget.id);
-        result.repliesGenerated = tweetsToProcess.length;
+        // Store the curated posts and get their IDs
+        const curatedPostIds = await this.storeCuratedPosts(userId, tweetsToProcess, currentTarget.id);
+
+        // Generate AI replies for the curated posts
+        const generatedReplies = await this.replyGenerator.generateRepliesForPosts(
+          userId,
+          tweetsToProcess,
+          curatedPostIds
+        );
+
+        result.repliesGenerated = generatedReplies.length;
+        console.log(`BatchProcessor: Generated ${generatedReplies.length} replies for user ${userId}`);
       }
+
+
 
       // TODO: we need to check logic for increasing/decreasing fetch size.
       // TODO: we need to check logic for updating the user state.
@@ -343,8 +355,9 @@ export class BatchProcessor {
 
   /**
    * Store curated posts for reply generation
+   * Returns array of created post IDs
    */
-  private async storeCuratedPosts(userId: string, tweets: any[], targetId: string): Promise<void> {
+  private async storeCuratedPosts(userId: string, tweets: any[], targetId: string): Promise<string[]> {
     try {
       const supabase = createServiceClient();
       
@@ -365,17 +378,21 @@ export class BatchProcessor {
         digest_date: new Date().toISOString().split('T')[0] // Today's date
       }));
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('curated_posts')
-        .insert(curatedPosts);
+        .insert(curatedPosts)
+        .select('id');
 
       if (error) {
         console.error('Error storing curated posts:', error);
+        return [];
       } else {
         console.log(`BatchProcessor: Stored ${curatedPosts.length} curated posts for user ${userId}`);
+        return data.map(post => post.id);
       }
     } catch (error) {
       console.error('Error in storeCuratedPosts:', error);
+      return [];
     }
   }
 
