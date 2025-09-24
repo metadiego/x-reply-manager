@@ -3,7 +3,9 @@ import { LoginForm } from "@/components/login-form";
 import { AppHeader } from "@/components/app-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Twitter, Mail, Target, CheckCircle, XCircle, AlertCircle, Calendar, Clock, ExternalLink, BarChart3 } from "lucide-react";
+import { RepliesList } from "@/components/replies/replies-list";
+import { postReplyToTwitter, rejectReply, editReplySuggestion } from "@/app/actions/reply-actions";
+import { Twitter, Mail, Target, CheckCircle, XCircle, AlertCircle, Clock, MessageSquare } from "lucide-react";
 import Link from "next/link";
 
 export default async function HomePage() {
@@ -53,6 +55,30 @@ export default async function HomePage() {
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.sub)
     .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+
+  // Get reply suggestions with curated posts
+  const { data: replySuggestions } = await supabase
+    .from('reply_suggestions')
+    .select(`
+      id,
+      suggested_reply,
+      user_edited_reply,
+      status,
+      created_at,
+      curated_post:curated_posts!inner (
+        twitter_post_id,
+        post_content,
+        post_author_handle,
+        post_url,
+        post_created_at,
+        engagement_score,
+        relevance_score,
+        total_score
+      )
+    `)
+    .eq('user_id', user.sub)
+    .order('created_at', { ascending: false })
+    .limit(50);
 
   const setupSteps = [
     {
@@ -261,67 +287,25 @@ export default async function HomePage() {
             </Card>
           </div>
 
-          {/* Daily Digest Section */}
-          <div id="digest" className="space-y-4">
+          {/* Reply Suggestions Section */}
+          <div id="replies" className="space-y-4">
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold tracking-tight">Today's Digest</h2>
+              <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                <MessageSquare className="h-6 w-6" />
+                Reply Suggestions
+              </h2>
               <p className="text-muted-foreground">
-                Review curated posts and manage your reply suggestions for {new Date().toLocaleDateString('en-US', { 
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric'
-                })}.
+                Review and manage AI-generated reply suggestions for your monitored topics.
               </p>
             </div>
 
-            {/* Digest Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Daily Digest
-                </CardTitle>
-                <CardDescription>
-                  {new Date().toLocaleDateString('en-US', { 
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4 p-4 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
-                  <Clock className="h-5 w-5 text-amber-600" />
-                  <div>
-                    <p className="font-medium text-amber-800 dark:text-amber-200">
-                      Digest processing in progress
-                    </p>
-                    <p className="text-sm text-amber-600 dark:text-amber-400">
-                      Your daily digest will be ready shortly. Check back in a few minutes.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Empty State for when no digest is available */}
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Mail className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No digest available yet</h3>
-                <p className="text-muted-foreground text-center mb-6 max-w-md">
-                  Once your monitoring targets are set up and processing begins, your curated posts will appear here.
-                </p>
-                <div className="flex gap-2">
-                  <Button asChild variant="outline">
-                    <Link href="/targets">
-                      Set Up Targets
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Reply Suggestions List */}
+            <RepliesList
+              replies={replySuggestions || []}
+              onPost={postReplyToTwitter}
+              onReject={rejectReply}
+              onEdit={editReplySuggestion}
+            />
           </div>
         </div>
       </main>
