@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/app-header";
+import { SidebarNav } from "@/components/sidebar-nav";
 import { TargetsManagement } from "@/components/targets/targets-management";
 
 export default async function TargetsPage() {
@@ -44,10 +44,18 @@ export default async function TargetsPage() {
   })) || [];
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-      <main className="container mx-auto py-6">
-        <div className="space-y-6">
+    <div className="flex min-h-screen bg-background justify-center">
+      <div className="flex w-full max-w-[1280px]">
+        {/* Sidebar */}
+        <div className="flex-shrink-0 w-[88px] xl:w-[275px]">
+          <div className="sticky top-0 h-screen">
+            <SidebarNav userHandle={profile?.twitter_handle} />
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <main className="flex-1 border-x">
+          <div className="p-6 space-y-6">
           {/* Page Header */}
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight">
@@ -65,8 +73,9 @@ export default async function TargetsPage() {
             targetStats={targetStats}
             profile={profile}
           />
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, MessageCircle, Target, Clock } from "lucide-react";
-import { AppHeader } from "@/components/app-header";
+import { SidebarNav } from "@/components/sidebar-nav";
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
@@ -12,11 +12,28 @@ export default async function AnalyticsPage() {
     redirect("/");
   }
 
+  const user = data.claims;
+
+  // Get user profile for sidebar
+  const { data: profile } = await supabase
+    .from('users_profiles')
+    .select('twitter_handle')
+    .eq('id', user.sub)
+    .single();
+
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-      <main className="container mx-auto py-6">
-        <div className="space-y-6">
+    <div className="flex min-h-screen bg-background justify-center">
+      <div className="flex w-full max-w-[1280px]">
+        {/* Sidebar */}
+        <div className="flex-shrink-0 w-[88px] xl:w-[275px]">
+          <div className="sticky top-0 h-screen">
+            <SidebarNav userHandle={profile?.twitter_handle} />
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <main className="flex-1 border-x">
+          <div className="p-6 space-y-6">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
         <p className="text-muted-foreground">
@@ -115,8 +132,9 @@ export default async function AnalyticsPage() {
           </CardContent>
         </Card>
       </div>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

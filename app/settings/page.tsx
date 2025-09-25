@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Twitter, Mail, User, Shield } from "lucide-react";
 import { TwitterLoginButton } from "@/components/twitter-login-button";
-import { AppHeader } from "@/components/app-header";
+import { SidebarNav } from "@/components/sidebar-nav";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -31,10 +31,18 @@ export default async function SettingsPage() {
   const hasTwitterCredentials = userData?.user?.identities?.some(identity => identity.provider === 'twitter') ?? false;
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-      <main className="container mx-auto py-6">
-        <div className="space-y-6">
+    <div className="flex min-h-screen bg-background justify-center">
+      <div className="flex w-full max-w-[1280px]">
+        {/* Sidebar */}
+        <div className="flex-shrink-0 w-[88px] xl:w-[275px]">
+          <div className="sticky top-0 h-screen">
+            <SidebarNav userHandle={profile?.twitter_handle} />
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <main className="flex-1 border-x">
+          <div className="p-6 space-y-6">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
@@ -265,8 +273,9 @@ export default async function SettingsPage() {
           )}
         </CardContent>
       </Card>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
