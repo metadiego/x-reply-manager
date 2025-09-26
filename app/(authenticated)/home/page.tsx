@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ModernRepliesList } from "@/components/replies/modern-replies-list";
+import { RepliesWithFilters } from "@/components/replies/replies-with-filters";
 import { postReplyToTwitter, rejectReply, editReplySuggestion } from "@/app/actions/reply-actions";
-import { Twitter, Mail, Target, CheckCircle, XCircle, AlertCircle, Clock } from "lucide-react";
+import { Mail, Target, AlertCircle, Clock } from "lucide-react";
 import Link from "next/link";
 
 export default async function HomePage() {
@@ -33,14 +33,41 @@ export default async function HomePage() {
     .eq('user_id', user.sub)
     .eq('status', 'active');
 
-  // Get recent digest stats
+  // Get stats for pending replies
+  const { count: pendingRepliesCount } = await supabase
+    .from('reply_suggestions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.sub)
+    .eq('status', 'pending');
+
+  // Get today's start date (midnight)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  // Get replies posted today
+  const { count: postedTodayCount } = await supabase
+    .from('reply_suggestions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.sub)
+    .eq('status', 'posted')
+    .gte('updated_at', todayStart.toISOString());
+
+  // Get replies skipped today
+  const { count: skippedTodayCount } = await supabase
+    .from('reply_suggestions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.sub)
+    .eq('status', 'skipped')
+    .gte('updated_at', todayStart.toISOString());
+
+  // Get recent replies count for header (last 7 days)
   const { count: recentRepliesCount } = await supabase
     .from('reply_suggestions')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.sub)
     .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
-  // Get reply suggestions with curated posts
+  // Get reply suggestions with curated posts and monitoring targets
   const { data: replySuggestions } = await supabase
     .from('reply_suggestions')
     .select(`
@@ -57,18 +84,39 @@ export default async function HomePage() {
         post_created_at,
         engagement_score,
         relevance_score,
-        total_score
+        total_score,
+        monitoring_target_id,
+        monitoring_targets!curated_posts_monitoring_target_id_fkey (
+          id,
+          name
+        )
       )
     `)
     .eq('user_id', user.sub)
     .order('created_at', { ascending: false })
     .limit(50);
 
+  // Get all monitoring targets for filter dropdown
+  const { data: monitoringTargets } = await supabase
+    .from('monitoring_targets')
+    .select('id, name')
+    .eq('user_id', user.sub)
+    .eq('status', 'active')
+    .order('name');
+
   // Transform data to match expected format
-  const formattedReplies = replySuggestions?.map(reply => ({
-    ...reply,
-    curated_post: Array.isArray(reply.curated_posts) ? reply.curated_posts[0] : reply.curated_posts
-  })) || [];
+  const formattedReplies = replySuggestions?.map(reply => {
+    const curatedPost = Array.isArray(reply.curated_posts) ? reply.curated_posts[0] : reply.curated_posts;
+    return {
+      ...reply,
+      curated_post: {
+        ...curatedPost,
+        monitoring_targets: Array.isArray(curatedPost.monitoring_targets)
+          ? curatedPost.monitoring_targets[0]
+          : curatedPost.monitoring_targets
+      }
+    };
+  }) || [];
 
   const setupSteps = [
     {
@@ -138,8 +186,9 @@ export default async function HomePage() {
           )}
 
           {/* Reply Suggestions Feed */}
-          <ModernRepliesList
+          <RepliesWithFilters
             replies={formattedReplies}
+            monitoringTargets={monitoringTargets || []}
             onPost={postReplyToTwitter}
             onReject={rejectReply}
             onEdit={editReplySuggestion}
@@ -157,16 +206,16 @@ export default async function HomePage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Active Targets</span>
-                <span className="font-semibold">{targetsCount || 0}</span>
+                <span className="text-sm text-muted-foreground">Pending Replies</span>
+                <span className="font-semibold">{pendingRepliesCount || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Weekly Replies</span>
-                <span className="font-semibold">{recentRepliesCount || 0}</span>
+                <span className="text-sm text-muted-foreground">Posted Today</span>
+                <span className="font-semibold text-green-600">{postedTodayCount || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Subscription</span>
-                <span className="font-semibold capitalize">{profile?.subscription_tier || 'Free'}</span>
+                <span className="text-sm text-muted-foreground">Skipped Today</span>
+                <span className="font-semibold text-gray-500">{skippedTodayCount || 0}</span>
               </div>
             </CardContent>
           </Card>

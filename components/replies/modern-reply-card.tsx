@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,16 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
   const [isEditing, setIsEditing] = useState(false);
   const [editedReply, setEditedReply] = useState(reply.user_edited_reply || reply.suggested_reply);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnimatingOut, setIsAnimatingOut] = useState(false);
+  const [shouldHide, setShouldHide] = useState(false);
+  const [showSkippedMessage, setShowSkippedMessage] = useState(false);
+
+  // Hide skipped cards immediately when filter changes
+  useEffect(() => {
+    if (reply.status === 'skipped') {
+      setShouldHide(true);
+    }
+  }, [reply.status]);
 
   const handlePost = async () => {
     setIsLoading(true);
@@ -59,11 +69,23 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
 
   const handleReject = async () => {
     setIsLoading(true);
-    try {
-      await onReject(reply.id);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsAnimatingOut(true);
+    // Show "Post skipped" message immediately as card fades
+    setShowSkippedMessage(true);
+
+    // Start collapsing after card fade is complete
+    setTimeout(() => {
+      setShouldHide(true);
+    }, 300); // Wait for fade to complete
+
+    // Complete the reject action
+    setTimeout(async () => {
+      try {
+        await onReject(reply.id);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300);
   };
 
   const handleSaveEdit = async () => {
@@ -94,12 +116,40 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
   const isSkipped = reply.status === 'skipped';
   const isPending = reply.status === 'pending';
 
+  // Don't render if animation is complete and is showing "New" filter
+  if (shouldHide) {
+    return null;
+  }
+
   return (
-    <Card className={`
-      overflow-hidden transition-all duration-300
-      ${isPosted ? 'opacity-75' : ''}
-      ${isSkipped ? 'opacity-50' : ''}
+    <div className={`
+      transition-all duration-500 ease-in-out overflow-hidden relative
+      ${shouldHide ? 'max-h-0 mb-0 py-0' : 'max-h-[800px] mb-4 py-0'}
     `}>
+      {/* Show skipped message overlaying the fading card */}
+      {showSkippedMessage && (
+        <div className={`
+          absolute inset-0 flex items-center justify-center z-10
+          transition-all duration-200 ease-in
+          ${shouldHide ? 'opacity-0' : 'opacity-100'}
+        `}>
+          <div className="bg-background/90 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg flex items-center">
+            <X className="h-4 w-4 mr-2 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">Post skipped</span>
+          </div>
+        </div>
+      )}
+
+      {/* The card that fades out */}
+      <div className={`
+        transition-all duration-300 ease-out
+        ${isAnimatingOut ? 'opacity-0 pointer-events-none scale-98' : 'opacity-100 scale-100'}
+      `}>
+        <Card className={`
+          overflow-hidden transition-opacity duration-300 ease-out
+          ${isPosted ? 'opacity-75' : ''}
+          ${isSkipped && !isAnimatingOut ? 'opacity-50' : ''}
+        `}>
       {/* Status Badge */}
       {(isPosted || isSkipped) && (
         <div className={`
@@ -280,5 +330,7 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
         )}
       </div>
     </Card>
+      </div>
+    </div>
   );
 }
