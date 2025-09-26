@@ -1,18 +1,12 @@
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SidebarNav } from "@/components/sidebar-nav";
 import { TargetsManagement } from "@/components/targets/targets-management";
 
 export default async function TargetsPage() {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
-  
-  if (error || !data?.claims) {
-    redirect("/");
-  }
+  const { data } = await supabase.auth.getClaims();
 
-  const user = data.claims;
-  
+  const user = data!.claims;
+
   // Get user profile
   const { data: profile } = await supabase
     .from('users_profiles')
@@ -44,18 +38,10 @@ export default async function TargetsPage() {
   })) || [];
 
   return (
-    <div className="flex min-h-screen bg-background justify-center">
-      <div className="flex w-full max-w-[1280px]">
-        {/* Sidebar */}
-        <div className="flex-shrink-0 w-[88px] xl:w-[275px] border-r shadow-sm">
-          <div className="sticky top-0 h-screen">
-            <SidebarNav userHandle={profile?.twitter_handle} />
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <main className="flex-shrink-0 w-[600px]">
-          <div className="p-6 space-y-6">
+    <>
+      {/* Main Content */}
+      <main className="flex-shrink-0 w-[600px]">
+        <div className="p-6 space-y-6">
           {/* Page Header */}
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight">
@@ -67,18 +53,17 @@ export default async function TargetsPage() {
           </div>
 
           {/* Targets Management Component */}
-          <TargetsManagement 
+          <TargetsManagement
             userId={user.sub}
             initialTargets={targets || []}
             targetStats={targetStats}
             profile={profile}
           />
-          </div>
-        </main>
+        </div>
+      </main>
 
-        {/* Right Sidebar (optional) */}
-        <aside className="hidden lg:block flex-1 min-w-[350px]" />
-      </div>
-    </div>
+      {/* Right Sidebar (optional) */}
+      <aside className="hidden lg:block flex-1 min-w-[350px]" />
+    </>
   );
 }

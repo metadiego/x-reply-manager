@@ -30,7 +30,7 @@ export function SidebarNav({ userHandle }: SidebarNavProps) {
   const navItems = [
     {
       title: 'Home',
-      href: '/',
+      href: '/home',
       icon: Home,
     },
     {
@@ -47,11 +47,6 @@ export function SidebarNav({ userHandle }: SidebarNavProps) {
       title: 'Settings',
       href: '/settings',
       icon: Settings,
-    },
-    {
-      title: 'Profile',
-      href: '/profile',
-      icon: User,
     },
   ];
 
@@ -70,15 +65,16 @@ export function SidebarNav({ userHandle }: SidebarNavProps) {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href ||
-                          (item.href !== '/' && pathname.startsWith(item.href));
+                          (item.href !== '/home' && pathname.startsWith(item.href));
 
           return (
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               className={cn(
-                "flex items-center gap-4 rounded-full px-3 py-3 text-xl transition-colors hover:bg-muted",
-                isActive && "font-bold"
+                "flex items-center gap-4 rounded-full px-3 py-3 text-xl transition-colors duration-100 hover:bg-muted",
+                isActive && "font-bold bg-muted/50"
               )}
             >
               <Icon className="h-7 w-7" />
@@ -88,13 +84,6 @@ export function SidebarNav({ userHandle }: SidebarNavProps) {
         })}
       </nav>
 
-      {/* Post Button */}
-      <div className="mt-4">
-        <Button className="w-full rounded-full" size="lg">
-          <MessageSquare className="h-5 w-5 xl:mr-2" />
-          <span className="hidden xl:block">Review Replies</span>
-        </Button>
-      </div>
 
       {/* User Profile */}
       {userHandle && (
