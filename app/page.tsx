@@ -118,14 +118,14 @@ export default async function HomePage() {
       <div className="flex min-h-screen bg-background justify-center">
         <div className="flex w-full max-w-[1280px]">
           {/* Sidebar */}
-          <div className="flex-shrink-0 w-[88px] xl:w-[275px]">
+          <div className="flex-shrink-0 w-[88px] xl:w-[275px] border-r shadow-sm">
             <div className="sticky top-0 h-screen">
               <SidebarNav userHandle={profile?.twitter_handle} />
             </div>
           </div>
 
           {/* Main Content */}
-          <main className="flex-shrink-0 w-[600px] border-x">
+          <main className="flex-shrink-0 w-[600px]">
           <div className="min-h-screen p-6">
             <div className="space-y-6">
               <div className="text-center space-y-4">
@@ -194,19 +194,21 @@ export default async function HomePage() {
     <div className="flex min-h-screen bg-background justify-center">
       <div className="flex w-full max-w-[1280px]">
         {/* Sidebar */}
-        <div className="flex-shrink-0 w-[88px] xl:w-[275px]">
+        <div className="flex-shrink-0 w-[88px] xl:w-[275px] border-r shadow-sm">
           <div className="sticky top-0 h-screen">
             <SidebarNav userHandle={profile?.twitter_handle} />
           </div>
         </div>
 
         {/* Main Content */}
-        <main className="flex-shrink-0 w-[600px] border-x">
+        <main className="flex-shrink-0 w-[600px]">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-background border-b">
-          <div className="p-4">
-            <h1 className="text-xl font-bold">Reply Suggestions</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+        <div className="bg-background">
+          <div className="p-6">
+            <h1 className="text-3xl font-bold tracking-tight">
+              Reply Suggestions
+            </h1>
+            <p className="text-muted-foreground">
               Review and manage AI-generated replies • {recentRepliesCount || 0} this week
             </p>
           </div>

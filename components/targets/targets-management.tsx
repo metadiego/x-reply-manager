@@ -245,20 +245,22 @@ export function TargetsManagement({
 
           {/* Performance Stats */}
           {stats && (
-            <div className="pt-3 border-t space-y-2">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="text-center">
-                  <div className="font-medium">{stats.postsFound}</div>
-                  <div className="text-muted-foreground text-xs">Posts Found</div>
+            <div className="pt-3 border-t">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <span className="font-medium">{stats.postsFound}</span>
+                    <span className="text-muted-foreground text-xs ml-1">posts found</span>
+                  </div>
+                  <div>
+                    <span className="font-medium">{stats.repliesGenerated}</span>
+                    <span className="text-muted-foreground text-xs ml-1">replies</span>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className="font-medium">{stats.repliesGenerated}</div>
-                  <div className="text-muted-foreground text-xs">Replies Generated</div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  Last: {new Date(stats.lastProcessed).toLocaleDateString()}
                 </div>
-              </div>
-              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                Last processed: {new Date(stats.lastProcessed).toLocaleDateString()}
               </div>
             </div>
           )}
@@ -271,7 +273,7 @@ export function TargetsManagement({
     return (
       <div className="space-y-6">
         {/* Quick Setup Cards */}
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-6">
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowCreateDialog(true)}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -373,7 +375,7 @@ export function TargetsManagement({
       {activeTargets.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Active Targets</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-4">
             {activeTargets.map(renderTarget)}
           </div>
         </div>
@@ -383,7 +385,7 @@ export function TargetsManagement({
       {pausedTargets.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Paused Targets</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-4">
             {pausedTargets.map(renderTarget)}
           </div>
         </div>
@@ -393,7 +395,7 @@ export function TargetsManagement({
       {archivedTargets.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Archived Targets</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-4">
             {archivedTargets.map(renderTarget)}
           </div>
         </div>

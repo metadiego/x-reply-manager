@@ -96,7 +96,7 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
 
   return (
     <Card className={`
-      overflow-hidden transition-all duration-300 hover:shadow-xl
+      overflow-hidden transition-all duration-300
       ${isPosted ? 'opacity-75' : ''}
       ${isSkipped ? 'opacity-50' : ''}
     `}>

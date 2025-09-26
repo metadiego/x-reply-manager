@@ -47,14 +47,14 @@ export default async function TargetsPage() {
     <div className="flex min-h-screen bg-background justify-center">
       <div className="flex w-full max-w-[1280px]">
         {/* Sidebar */}
-        <div className="flex-shrink-0 w-[88px] xl:w-[275px]">
+        <div className="flex-shrink-0 w-[88px] xl:w-[275px] border-r shadow-sm">
           <div className="sticky top-0 h-screen">
             <SidebarNav userHandle={profile?.twitter_handle} />
           </div>
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 border-x">
+        <main className="flex-shrink-0 w-[600px]">
           <div className="p-6 space-y-6">
           {/* Page Header */}
           <div className="space-y-2">
@@ -75,6 +75,9 @@ export default async function TargetsPage() {
           />
           </div>
         </main>
+
+        {/* Right Sidebar (optional) */}
+        <aside className="hidden lg:block flex-1 min-w-[350px]" />
       </div>
     </div>
   );
