@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/auth';
 
 // GET /api/targets - List user's monitoring targets
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = await createClient();
+    const userId = session.user.id;
 
     // Fetch user's monitoring targets with their configurations
     const { data: targets, error } = await supabase
@@ -19,7 +22,7 @@ export async function GET(request: NextRequest) {
         *,
         topic_targets (*)
       `)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -37,13 +40,14 @@ export async function GET(request: NextRequest) {
 // POST /api/targets - Create a new monitoring target
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = await createClient();
+    const userId = session.user.id;
 
     const body = await request.json();
     const { name, keywords, hashtags, excludeKeywords, minEngagement } = body;
@@ -113,13 +117,14 @@ export async function POST(request: NextRequest) {
 // PUT /api/targets?id=<target_id> - Update a target
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = await createClient();
+    const userId = session.user.id;
 
     const { searchParams } = new URL(request.url);
     const targetId = searchParams.get('id');
@@ -136,7 +141,7 @@ export async function PUT(request: NextRequest) {
       .from('monitoring_targets')
       .select('id')
       .eq('id', targetId)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     if (fetchError || !existingTarget) {
@@ -201,13 +206,14 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/targets?id=<target_id> - Delete a target
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = await createClient();
+    const userId = session.user.id;
 
     const { searchParams } = new URL(request.url);
     const targetId = searchParams.get('id');
@@ -221,7 +227,7 @@ export async function DELETE(request: NextRequest) {
       .from('monitoring_targets')
       .delete()
       .eq('id', targetId)
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Error deleting target:', error);

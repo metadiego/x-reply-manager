@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -10,30 +10,26 @@ interface TwitterLoginButtonProps {
   size?: "default" | "sm" | "lg" | "icon";
 }
 
-export function TwitterLoginButton({ 
-  className, 
-  variant = "default", 
-  size = "default" 
+export function TwitterLoginButton({
+  className,
+  variant = "default",
+  size = "default"
 }: TwitterLoginButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleTwitterLogin = async () => {
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
 
     try {
-      // Use the exact pattern from Supabase docs
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'twitter',
-        options: {
-          redirectTo: 'http://localhost:3000/auth/callback'
-        }
+      const result = await signIn("twitter", {
+        callbackUrl: "/home",
+        redirect: true,
       });
-      
-      if (error) {
-        throw error;
+
+      if (result?.error) {
+        throw new Error(result.error);
       }
     } catch (error: unknown) {
       console.error('Twitter OAuth error:', error);

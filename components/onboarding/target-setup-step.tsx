@@ -111,14 +111,6 @@ export function TargetSetupStep({ userId, onComplete, targetsCount, twitterAnaly
       console.log('User ID:', userId);
       console.log('Topic targets to save:', topicTargets);
 
-      // First, get the current user to ensure we have proper authentication
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        console.error('Authentication error:', userError);
-        throw new Error('Authentication failed. Please refresh the page and try again.');
-      }
-      console.log('Authenticated user:', { id: user.id, email: user.email });
-
       // Check if user profile exists - with better error handling
       console.log('Checking for user profile...');
       const { data: existingProfile, error: profileCheckError } = await supabase

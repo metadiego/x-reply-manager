@@ -2,17 +2,21 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/auth';
 
 /**
  * Update the status of a reply suggestion
  */
 export async function updateReplyStatus(replyId: string, status: 'posted' | 'skipped') {
-  const supabase = await createClient();
+  const session = await getServerSession(authOptions);
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  if (!session?.user) {
     throw new Error('Unauthorized');
   }
+
+  const supabase = await createClient();
+  const userId = session.user.id;
 
   const updateData: any = {
     status,
@@ -27,7 +31,7 @@ export async function updateReplyStatus(replyId: string, status: 'posted' | 'ski
     .from('reply_suggestions')
     .update(updateData)
     .eq('id', replyId)
-    .eq('user_id', user.id);
+    .eq('user_id', userId);
 
   if (error) {
     throw new Error(`Failed to update reply status: ${error.message}`);
@@ -40,12 +44,14 @@ export async function updateReplyStatus(replyId: string, status: 'posted' | 'ski
  * Edit a reply suggestion
  */
 export async function editReplySuggestion(replyId: string, newText: string) {
-  const supabase = await createClient();
+  const session = await getServerSession(authOptions);
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  if (!session?.user) {
     throw new Error('Unauthorized');
   }
+
+  const supabase = await createClient();
+  const userId = session.user.id;
 
   const { error } = await supabase
     .from('reply_suggestions')
@@ -55,7 +61,7 @@ export async function editReplySuggestion(replyId: string, newText: string) {
       updated_at: new Date().toISOString()
     })
     .eq('id', replyId)
-    .eq('user_id', user.id);
+    .eq('user_id', userId);
 
   if (error) {
     throw new Error(`Failed to edit reply: ${error.message}`);
@@ -69,10 +75,9 @@ export async function editReplySuggestion(replyId: string, newText: string) {
  * In production, this would integrate with Twitter API
  */
 export async function postReplyToTwitter(replyId: string, replyText: string) {
-  const supabase = await createClient();
+  const session = await getServerSession(authOptions);
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  if (!session?.user) {
     throw new Error('Unauthorized');
   }
 

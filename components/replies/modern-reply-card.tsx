@@ -8,15 +8,13 @@ import {
   Heart,
   MessageCircle,
   Repeat2,
-  BarChart3,
-  Twitter,
   X,
   Send,
   Edit2,
   Save,
   Sparkles,
   Clock,
-  TrendingUp
+  ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -31,11 +29,11 @@ interface ModernReplyCardProps {
       twitter_post_id: string;
       post_content: string;
       post_author_handle: string;
+      post_author_id?: string;
       post_url: string;
       post_created_at?: string;
       engagement_score?: number;
       relevance_score?: number;
-      total_score?: number;
     };
   };
   onPost: (id: string, replyText: string) => Promise<void>;
@@ -50,6 +48,18 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [shouldHide, setShouldHide] = useState(false);
   const [showSkippedMessage, setShowSkippedMessage] = useState(false);
+
+  // Extract username from URL if handle is just a numeric ID
+  const extractUsernameFromUrl = (url: string) => {
+    const match = url.match(/twitter\.com\/([^\/]+)\/status/i) || url.match(/x\.com\/([^\/]+)\/status/i);
+    return match ? match[1] : null;
+  };
+
+  const authorHandle = reply.curated_post.post_author_handle;
+  const isNumericHandle = /^\d+$/.test(authorHandle);
+  const extractedUsername = extractUsernameFromUrl(reply.curated_post.post_url);
+  const displayHandle = isNumericHandle && extractedUsername ? extractedUsername : authorHandle;
+  const displayName = isNumericHandle && extractedUsername ? extractedUsername : authorHandle;
 
   // Hide skipped cards immediately when filter changes
   useEffect(() => {
@@ -110,7 +120,7 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
     replies: Math.floor(Math.random() * 30)
   };
 
-  const scorePercentage = (reply.curated_post.total_score || 0) * 100;
+  const scorePercentage = (reply.curated_post.relevance_score || 0) * 100;
 
   const isPosted = reply.status === 'posted';
   const isSkipped = reply.status === 'skipped';
@@ -175,10 +185,10 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
                 rel="noopener noreferrer"
                 className="font-bold text-base hover:underline"
               >
-                {reply.curated_post.post_author_handle}
+                {displayName}
               </a>
               <span className="text-sm text-muted-foreground">
-                @{reply.curated_post.post_author_handle}
+                @{displayHandle}
               </span>
               {reply.curated_post.post_created_at && (
                 <>
@@ -191,13 +201,21 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
               )}
             </div>
           </div>
-          <div className="flex-shrink-0">
-            <Twitter className="h-5 w-5 text-blue-500" />
+          <div className="flex-shrink-0 flex items-center gap-2">
+            <a
+              href={reply.curated_post.post_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              title="Open in Twitter"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
           </div>
         </div>
 
         {/* Tweet Content */}
-        <div className="pl-[60px] mb-4">
+        <div className="mb-4">
           <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
             {reply.curated_post.post_content}
           </p>
@@ -294,7 +312,7 @@ export function ModernReplyCard({ reply, onPost, onReject, onEdit }: ModernReply
             </div>
           </div>
         ) : (
-          <div className="bg-muted/30 rounded-lg p-4 text-[15px] leading-relaxed">
+          <div className="rounded-lg p-4 text-[15px] leading-relaxed">
             {reply.user_edited_reply || reply.suggested_reply}
           </div>
         )}

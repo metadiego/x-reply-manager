@@ -14,11 +14,11 @@ interface Reply {
     twitter_post_id: string;
     post_content: string;
     post_author_handle: string;
+    post_author_id?: string;
     post_url: string;
     post_created_at?: string;
     engagement_score?: number;
     relevance_score?: number;
-    total_score?: number;
     monitoring_target_id?: string;
     monitoring_targets?: {
       id: string;
@@ -94,8 +94,8 @@ export function RepliesWithFilters({
     // Apply sorting
     filtered.sort((a, b) => {
       if (filters.sort === 'score') {
-        const scoreA = a.curated_post.total_score || 0;
-        const scoreB = b.curated_post.total_score || 0;
+        const scoreA = a.curated_post.relevance_score || 0;
+        const scoreB = b.curated_post.relevance_score || 0;
         return scoreB - scoreA; // Highest score first
       } else {
         // Sort by recency (created_at)

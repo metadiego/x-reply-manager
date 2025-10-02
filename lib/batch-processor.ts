@@ -8,7 +8,6 @@ interface EligibleUser {
   replies_left_today: number;
   current_target_index: number;
   fetch_size: number;
-  successful_fetch_rate: number;
   last_served_at: string | null;
 }
 
@@ -79,7 +78,6 @@ export class BatchProcessor {
           replies_left_today,
           current_target_index,
           fetch_size,
-          successful_fetch_rate,
           last_served_at
         `)
         .gt('replies_left_today', 0) // Must have replies left
@@ -233,18 +231,16 @@ export class BatchProcessor {
       const filteredTweets = await this.tweetFilter.filterForQuality(tweets);
       console.log(`BatchProcessor: Filtered ${tweets.length} tweets to ${filteredTweets.length} quality tweets`);
 
-      // Take up to user's remaining quota
-      const tweetsToProcess = filteredTweets.slice(0, userState.replies_left_today);
 
       // Store curated posts and generate replies
-      if (tweetsToProcess.length > 0) {
+      if (filteredTweets.length > 0) {
         // Store the curated posts and get their IDs
-        const curatedPostIds = await this.storeCuratedPosts(userId, tweetsToProcess, currentTarget.id);
+        const curatedPostIds = await this.storeCuratedPosts(userId, filteredTweets, currentTarget.id);
 
         // Generate AI replies for the curated posts
         const generatedReplies = await this.replyGenerator.generateRepliesForPosts(
           userId,
-          tweetsToProcess,
+          filteredTweets,
           curatedPostIds
         );
 
@@ -252,25 +248,20 @@ export class BatchProcessor {
         console.log(`BatchProcessor: Generated ${generatedReplies.length} replies for user ${userId}`);
       }
 
-
-
-      // TODO: we need to check logic for increasing/decreasing fetch size.
       // TODO: we need to check logic for updating the user state.
-
       // Update user processing state
       await this.updateUserState(userId, {
         current_target_index: targetIndex + 1,
         last_served_at: new Date().toISOString(),
-        replies_left_today: userState.replies_left_today - tweetsToProcess.length,
-        fetch_size: this.adaptFetchSize(userState, filteredTweets.length)
+        replies_left_today: userState.replies_left_today - filteredTweets.length,
       });
 
-      // TODO: we need to check logic for updating the target stats.
+      // TODO: we need to check logic for updating the target stats -  last_fetched_at and fetch_count_today
 
       // Update target tracking
-      await this.updateTargetStats(currentTarget.id, tweets.length, filteredTweets.length);
+      await this.updateTargetStats(currentTarget.id, tweets.length);
 
-      console.log(`BatchProcessor: User ${userId} processed ${tweetsToProcess.length} tweets, ${userState.replies_left_today - tweetsToProcess.length} replies remaining`);
+      console.log(`BatchProcessor: User ${userId} processed ${filteredTweets.length} tweets, ${userState.replies_left_today - filteredTweets.length} replies remaining`);
       
       return result;
     } catch (error: any) {
@@ -329,31 +320,6 @@ export class BatchProcessor {
   }
 
   /**
-   * Adapt fetch size based on success rate
-   */
-  private adaptFetchSize(userState: EligibleUser, foundCount: number): number {
-    const currentSize = userState.fetch_size;
-    const successRate = foundCount / currentSize;
-    
-    // Update success rate with exponential moving average
-    const newSuccessRate = userState.successful_fetch_rate * 0.7 + successRate * 0.3;
-    
-    // Adapt fetch size based on success rate
-    // Twitter API requires max_results between 10 and 100
-    let newSize = currentSize;
-    if (newSuccessRate < 0.3) {
-      // Low success rate - increase fetch size
-      newSize = Math.min(currentSize + 5, 50); // Increased to 50 max for better coverage
-    } else if (newSuccessRate > 0.7) {
-      // High success rate - can decrease fetch size
-      newSize = Math.max(currentSize - 2, 10); // Minimum 10 per Twitter API requirements
-    }
-    
-    console.log(`BatchProcessor: Adapted fetch size from ${currentSize} to ${newSize} (success rate: ${Math.round(newSuccessRate * 100)}%)`);
-    return newSize;
-  }
-
-  /**
    * Store curated posts for reply generation
    * Returns array of created post IDs
    */
@@ -371,10 +337,7 @@ export class BatchProcessor {
         post_url: `https://twitter.com/i/status/${tweet.id}`,
         post_created_at: tweet.created_at,
         relevance_score: tweet.score || 0.5,
-        engagement_score: this.calculateEngagementScore(tweet),
         relationship_score: 0.5, // TODO: Calculate based on author relationship
-        total_score: tweet.score || 0.5,
-        selection_reason: 'Matched topic keywords/hashtags',
         digest_date: new Date().toISOString().split('T')[0] // Today's date
       }));
 
@@ -397,22 +360,9 @@ export class BatchProcessor {
   }
 
   /**
-   * Calculate engagement score for a tweet
-   */
-  private calculateEngagementScore(tweet: any): number {
-    const metrics = tweet.public_metrics || {};
-    const total = (metrics.like_count || 0) + 
-                  (metrics.retweet_count || 0) * 2 + 
-                  (metrics.reply_count || 0) * 1.5;
-    
-    // Normalize to 0-1 scale (log scale for better distribution)
-    return Math.min(Math.log(total + 1) / Math.log(1000), 1);
-  }
-
-  /**
    * Update target processing statistics
    */
-  private async updateTargetStats(targetId: string, totalFetched: number, qualityCount: number): Promise<void> {
+  private async updateTargetStats(targetId: string, totalFetched: number): Promise<void> {
     try {
       const supabase = createServiceClient();
       
@@ -420,8 +370,7 @@ export class BatchProcessor {
         .from('monitoring_targets')
         .update({
           last_fetched_at: new Date().toISOString(),
-          fetch_count_today: qualityCount, // Increment would be better but this is simpler
-          total_fetches: totalFetched, // This should be incremented too
+          fetch_count_today: totalFetched,
           updated_at: new Date().toISOString()
         })
         .eq('id', targetId);

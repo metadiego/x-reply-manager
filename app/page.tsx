@@ -1,13 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "@/components/login-form";
 import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
 
 export default async function RootPage() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
+  const session = await getServerSession(authOptions);
 
   // If user is authenticated, redirect to home
-  if (!error && data?.claims) {
+  if (session?.user) {
     redirect("/home");
   }
 

@@ -16,11 +16,7 @@ interface Tweet {
 }
 
 interface VoiceProfile {
-  tone?: string;
-  style?: string;
-  topics?: string[];
-  examples?: string[];
-  analysis?: any;
+  samples: string[]
 }
 
 interface GeneratedReply {
@@ -109,29 +105,10 @@ export class ReplyGenerator {
     voiceProfile: VoiceProfile | null
   ): Promise<GeneratedReply | null> {
     try {
-      // Build voice profile context
-      let voiceContext = '';
-      if (voiceProfile) {
-        if (voiceProfile.analysis) {
-          // If we have AI analysis, use it
-          voiceContext = `
-            Voice Profile Analysis:
-            ${JSON.stringify(voiceProfile.analysis, null, 2)}
-          `;
-        } else {
-          // Otherwise use the basic profile
-          voiceContext = `
-            Tone: ${voiceProfile.tone || 'professional and friendly'}
-            Style: ${voiceProfile.style || 'conversational'}
-            Topics of interest: ${voiceProfile.topics?.join(', ') || 'general'}
-          `;
-        }
-      }
-
       const prompt = `
         You are a social media expert helping to craft an engaging reply to a tweet.
 
-        ${voiceProfile ? voiceContext : 'Use a professional, friendly, and authentic tone.'}
+        'Voice samples: '${ voiceProfile?.samples}
 
         Original Tweet: "${tweet.text}"
         Tweet Metrics: ${tweet.public_metrics.like_count} likes, ${tweet.public_metrics.retweet_count} retweets, ${tweet.public_metrics.reply_count} replies
@@ -205,28 +182,20 @@ export class ReplyGenerator {
 
       // Try to get the voice profile from the voice_profiles table
       const { data: voiceProfile, error: voiceError } = await supabase
-        .from('voice_profiles')
-        .select('analysis')
-        .eq('user_id', userId)
+        .from('users_profiles')
+        .select('voice_training_samples')
+        .eq('id', userId)
         .single();
 
-      if (!voiceError && voiceProfile?.analysis) {
-        return { analysis: voiceProfile.analysis };
+      if (voiceError) {
+        return {
+          samples: []
+        } as VoiceProfile;
       }
 
-      // Fallback to voice_training table if voice_profiles doesn't exist or is empty
-      const { data: voiceTraining, error: trainingError } = await supabase
-        .from('voice_training')
-        .select('tone, style, topics, examples')
-        .eq('user_id', userId)
-        .single();
-
-      if (trainingError || !voiceTraining) {
-        console.log(`No voice profile found for user ${userId}, using defaults`);
-        return null;
-      }
-
-      return voiceTraining as VoiceProfile;
+      return {
+        samples: voiceProfile?.voice_training_samples || []
+      } as VoiceProfile;
     } catch (error) {
       console.error(`Error fetching voice profile for ${userId}:`, error);
       return null;

@@ -14,11 +14,11 @@ interface Reply {
     twitter_post_id: string;
     post_content: string;
     post_author_handle: string;
+    post_author_id?: string;
     post_url: string;
     post_created_at?: string;
     engagement_score?: number;
     relevance_score?: number;
-    total_score?: number;
   };
 }
 

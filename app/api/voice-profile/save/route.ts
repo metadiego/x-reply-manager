@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = await createClient();
+    const userId = session.user.id;
 
     // Get the analysis data from request body
     const { analysis } = await request.json();
@@ -24,7 +27,7 @@ export async function POST(request: NextRequest) {
     const { error: upsertError } = await supabase
       .from('voice_profiles')
       .upsert({
-        user_id: user.id,
+        user_id: userId,
         analysis,
         updated_at: new Date().toISOString()
       });

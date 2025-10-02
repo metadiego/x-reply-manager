@@ -1,18 +1,18 @@
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ClientSidebarWrapper } from "@/components/client-sidebar-wrapper";
 import { Suspense } from "react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
 
 export default async function AuthenticatedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
+  const session = await getServerSession(authOptions);
 
   // If user is not authenticated, redirect to home
-  if (error || !data?.claims) {
+  if (!session?.user) {
     redirect("/");
   }
 

@@ -1,17 +1,24 @@
 import { createClient } from "@/lib/supabase/server";
 import { TargetsManagement } from "@/components/targets/targets-management";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+import { redirect } from "next/navigation";
 
 export default async function TargetsPage() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const session = await getServerSession(authOptions);
 
-  const user = data!.claims;
+  if (!session?.user) {
+    redirect("/auth/login");
+  }
+
+  const supabase = await createClient();
+  const userId = session.user.id;
 
   // Get user profile
   const { data: profile } = await supabase
     .from('users_profiles')
     .select('*')
-    .eq('id', user.sub)
+    .eq('id', userId)
     .single();
 
   // Get user's monitoring targets with their configurations
@@ -22,7 +29,7 @@ export default async function TargetsPage() {
       topic_targets (*),
       twitter_list_targets (*)
     `)
-    .eq('user_id', user.sub)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
   if (targetsError) {

@@ -1,99 +1,79 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { OnboardingFlow } from "@/components/onboarding-flow";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
 
-export default async function OnboardingPage() {
+export default async function OnboardingWelcome() {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user) {
+    redirect("/auth/login");
+  }
+
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
-  
-  if (error || !data?.claims) {
-    redirect("/");
-  }
+  const userId = session.user.id;
 
-  const user = data.claims;
-  
-  // Get user profile to check onboarding status
-  const { data: profile, error: profileError } = await supabase
-    .from('users_profiles')
-    .select('*')
-    .eq('id', user.sub)
-    .maybeSingle(); // Use maybeSingle to avoid errors if profile doesn't exist
+  const { data: profile } = await supabase
+    .from("users_profiles")
+    .select("onboarding_completed")
+    .eq("id", userId)
+    .single();
 
-  // Get the full user object to extract Twitter metadata
-  const { data: userData } = await supabase.auth.getUser();
-  const fullUser = userData?.user;
-  
-  // Extract Twitter user data if available
-  let twitterHandle = null;
-  let twitterUserId = null;
-  
-  if (fullUser?.app_metadata?.provider === 'twitter' && fullUser?.user_metadata) {
-    const twitterData = fullUser.user_metadata;
-    twitterUserId = twitterData.provider_id || twitterData.sub;
-    twitterHandle = twitterData.user_name || twitterData.preferred_username;
-  }
-
-  // If no profile exists, create one now (fallback for if the trigger didn't work)
-  if (!profile && !profileError) {
-    console.log('Creating user profile during onboarding page load for user:', user.sub);
-    
-    const { error: createError } = await supabase
-      .from('users_profiles')
-      .insert({ 
-        id: user.sub,
-        twitter_handle: twitterHandle,
-        twitter_user_id: twitterUserId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-    
-    if (createError) {
-      console.error('Failed to create user profile:', createError);
-      // Continue anyway - the target setup component will handle this
-    } else {
-      console.log('Successfully created user profile with Twitter data');
-    }
-  } 
-  // If profile exists but is missing Twitter data, update it
-  else if (profile && (!profile.twitter_handle || !profile.twitter_user_id) && twitterHandle && twitterUserId) {
-    console.log('Updating existing profile with Twitter data for user:', user.sub);
-    
-    const { error: updateError } = await supabase
-      .from('users_profiles')
-      .update({ 
-        twitter_handle: twitterHandle,
-        twitter_user_id: twitterUserId,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', user.sub);
-    
-    if (updateError) {
-      console.error('Failed to update user profile with Twitter data:', updateError);
-    } else {
-      console.log('Successfully updated user profile with Twitter data');
-    }
-  }
-
-  // Check if user has monitoring targets
-  const { count: targetsCount, error: targetsError } = await supabase
-    .from('monitoring_targets')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.sub)
-    .eq('status', 'active');
-
-  // If user has completed all setup, redirect to home
-  // Note: Twitter connection check removed since all users authenticate via Twitter OAuth
-  if ((targetsCount || 0) > 0 && profile?.digest_configured && profile?.voice_training_samples?.length > 0) {
-    redirect("/");
+  if (profile?.onboarding_completed) {
+    redirect("/home");
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <OnboardingFlow 
-        user={user}
-        profile={profile}
-        targetsCount={targetsCount || 0}
-      />
+    <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-8">
+      <div className="text-center space-y-4 max-w-lg">
+        <h1 className="text-4xl font-bold">Welcome to X Reply Manager</h1>
+        <p className="text-lg text-muted-foreground">
+          Your AI-powered assistant for managing X (Twitter) replies intelligently and efficiently.
+        </p>
+      </div>
+
+      <div className="space-y-6 max-w-md">
+        <div className="space-y-4">
+          <h2 className="text-2xl font-semibold text-center">What you can do:</h2>
+          <ul className="space-y-3 text-muted-foreground">
+            <li className="flex items-start">
+              <span className="mr-2">🎯</span>
+              <span>Monitor specific X accounts and keywords for targeted engagement</span>
+            </li>
+            <li className="flex items-start">
+              <span className="mr-2">🤖</span>
+              <span>Generate contextual, personalized replies using AI</span>
+            </li>
+            <li className="flex items-start">
+              <span className="mr-2">📊</span>
+              <span>Track engagement metrics and optimize your reply strategy</span>
+            </li>
+            <li className="flex items-start">
+              <span className="mr-2">⚡</span>
+              <span>Save time while maintaining authentic interactions</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+        <div className="flex space-x-1">
+          <div className="w-8 h-1 bg-primary rounded-full" />
+          <div className="w-8 h-1 bg-muted rounded-full" />
+          <div className="w-8 h-1 bg-muted rounded-full" />
+        </div>
+        <span>Step 1 of 3</span>
+      </div>
+
+      <Button asChild size="lg" className="mt-4">
+        <Link href="/onboarding/create-target" className="flex items-center">
+          Get Started
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Link>
+      </Button>
     </div>
   );
 }

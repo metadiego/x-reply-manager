@@ -1,70 +1,99 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { RepliesWithFilters } from "@/components/replies/replies-with-filters";
 import { postReplyToTwitter, rejectReply, editReplySuggestion } from "@/app/actions/reply-actions";
-import { Mail, Target, AlertCircle, Clock } from "lucide-react";
-import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+import { redirect } from "next/navigation";
 
 export default async function HomePage() {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user) {
+    redirect("/auth/login");
+  }
+
   const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const userId = session.user.id;
 
-  const user = data!.claims;
-
-  // Check user profile and Twitter connection status
+  // Check if user has completed onboarding
   const { data: profile } = await supabase
     .from('users_profiles')
-    .select('twitter_handle, twitter_user_id, subscription_tier, daily_digest_time, timezone, digest_configured')
-    .eq('id', user.sub)
+    .select('onboarding_completed')
+    .eq('id', userId)
     .single();
 
-  // Check if voice profile exists
-  const { data: voiceProfile } = await supabase
-    .from('voice_profiles')
-    .select('user_id')
-    .eq('user_id', user.sub)
-    .single();
-
-  // Get monitoring targets count
-  const { count: targetsCount } = await supabase
-    .from('monitoring_targets')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.sub)
-    .eq('status', 'active');
-
-  // Get stats for pending replies
-  const { count: pendingRepliesCount } = await supabase
-    .from('reply_suggestions')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.sub)
-    .eq('status', 'pending');
+  if (!profile?.onboarding_completed) {
+    redirect("/onboarding");
+  }
 
   // Get today's start date (midnight)
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  // Get replies posted today
-  const { count: postedTodayCount } = await supabase
+  // TODAY'S STATS
+  // Get pending review today (status = 'pending')
+  const { count: pendingReviewTodayCount } = await supabase
     .from('reply_suggestions')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.sub)
-    .eq('status', 'posted')
-    .gte('updated_at', todayStart.toISOString());
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .gte('created_at', todayStart.toISOString());
 
-  // Get replies skipped today
+  // Get skipped today
   const { count: skippedTodayCount } = await supabase
     .from('reply_suggestions')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.sub)
+    .eq('user_id', userId)
     .eq('status', 'skipped')
     .gte('updated_at', todayStart.toISOString());
+
+  // Get accepted/posted today
+  const { count: acceptedTodayCount } = await supabase
+    .from('reply_suggestions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'posted')
+    .gte('updated_at', todayStart.toISOString());
+
+  // Get pending generation today (we'll check curated posts without suggestions)
+  const { count: pendingGenerationTodayCount } = await supabase
+    .from('curated_posts')
+    .select(`
+      twitter_post_id,
+      reply_suggestions!left(id)
+    `, { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .is('reply_suggestions.id', null)
+    .gte('created_at', todayStart.toISOString());
+
+  // ALL TIME STATS
+  // Get all pending review (status = 'pending')
+  const { count: pendingReviewAllTimeCount } = await supabase
+    .from('reply_suggestions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'pending');
+
+  // Get all skipped
+  const { count: skippedAllTimeCount } = await supabase
+    .from('reply_suggestions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'skipped');
+
+  // Get all accepted/posted
+  const { count: acceptedAllTimeCount } = await supabase
+    .from('reply_suggestions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'posted');
 
   // Get recent replies count for header (last 7 days)
   const { count: recentRepliesCount } = await supabase
     .from('reply_suggestions')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.sub)
+    .eq('user_id', userId)
     .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
   // Get reply suggestions with curated posts and monitoring targets
@@ -80,11 +109,10 @@ export default async function HomePage() {
         twitter_post_id,
         post_content,
         post_author_handle,
+        post_author_id,
         post_url,
         post_created_at,
-        engagement_score,
         relevance_score,
-        total_score,
         monitoring_target_id,
         monitoring_targets!curated_posts_monitoring_target_id_fkey (
           id,
@@ -92,7 +120,7 @@ export default async function HomePage() {
         )
       )
     `)
-    .eq('user_id', user.sub)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -100,7 +128,7 @@ export default async function HomePage() {
   const { data: monitoringTargets } = await supabase
     .from('monitoring_targets')
     .select('id, name')
-    .eq('user_id', user.sub)
+    .eq('user_id', userId)
     .eq('status', 'active')
     .order('name');
 
@@ -118,34 +146,8 @@ export default async function HomePage() {
     };
   }) || [];
 
-  const setupSteps = [
-    {
-      title: "Set Up Monitoring Targets",
-      description: "Add topics or Twitter lists to monitor for relevant posts",
-      completed: (targetsCount || 0) > 0,
-      href: "/targets",
-      icon: Target
-    },
-    {
-      title: "Configure Daily Digest",
-      description: "Set your preferred time for receiving daily email digests",
-      completed: !!profile?.digest_configured,
-      href: "/settings",
-      icon: Mail
-    },
-    {
-      title: "AI Voice Training",
-      description: "Train AI to write replies in your style",
-      completed: !!voiceProfile,
-      href: "/onboarding",
-      icon: Clock
-    }
-  ];
-
-  const allStepsCompleted = setupSteps.every(step => step.completed);
-
   return (
-    <>
+    <div className="flex w-full">
       {/* Main Content */}
       <main className="flex-shrink-0 w-[600px]">
         {/* Header */}
@@ -161,30 +163,6 @@ export default async function HomePage() {
         </div>
 
         <div className="min-h-screen">
-          {/* Setup Banner - Show at top if not completed */}
-          {!allStepsCompleted && (
-            <div className="border-b bg-amber-50 dark:bg-amber-950/20 p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-semibold text-amber-900 dark:text-amber-200">
-                    Complete your setup
-                  </p>
-                  <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                    {setupSteps.filter(s => !s.completed).length} steps remaining to start receiving suggestions
-                  </p>
-                  <div className="flex gap-2 mt-2">
-                    {setupSteps.filter(s => !s.completed).slice(0, 1).map((step) => (
-                      <Button key={step.href} asChild size="sm" variant="outline">
-                        <Link href={step.href}>{step.title}</Link>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Reply Suggestions Feed */}
           <RepliesWithFilters
             replies={formattedReplies}
@@ -196,52 +174,62 @@ export default async function HomePage() {
         </div>
       </main>
 
-      {/* Right Sidebar (optional - for trends, etc) */}
-      <aside className="hidden lg:block flex-1 min-w-[350px] pl-4 pr-4">
-        <div className="sticky top-4 pt-4 space-y-4">
-          {/* Stats Card */}
-          <Card>
+      {/* Right Sidebar - Stats */}
+      <aside className="flex-1 pl-6 pr-4">
+        <div className="sticky top-0 pt-6">
+          <Card className="shadow-none">
             <CardHeader>
               <CardTitle className="text-lg">Your Stats</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Pending Replies</span>
-                <span className="font-semibold">{pendingRepliesCount || 0}</span>
+            <CardContent className="space-y-6">
+              {/* Today's Stats */}
+              <div>
+                <h3 className="font-semibold text-sm mb-3">Today</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Pending Review</span>
+                    <span className="font-semibold">{pendingReviewTodayCount || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Skipped</span>
+                    <span className="font-semibold text-gray-500">{skippedTodayCount || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Accepted</span>
+                    <span className="font-semibold text-green-600">{acceptedTodayCount || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Pending Generation</span>
+                    <span className="font-semibold text-amber-600">{pendingGenerationTodayCount || 0}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Posted Today</span>
-                <span className="font-semibold text-green-600">{postedTodayCount || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Skipped Today</span>
-                <span className="font-semibold text-gray-500">{skippedTodayCount || 0}</span>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button asChild variant="outline" className="w-full justify-start">
-                <Link href="/targets">
-                  <Target className="h-4 w-4 mr-2" />
-                  Manage Targets
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="w-full justify-start">
-                <Link href="/settings">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Digest Settings
-                </Link>
-              </Button>
+              {/* Divider */}
+              <div className="border-t"></div>
+
+              {/* All Time Stats */}
+              <div>
+                <h3 className="font-semibold text-sm mb-3">All Time</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Pending Review</span>
+                    <span className="font-semibold">{pendingReviewAllTimeCount || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Skipped</span>
+                    <span className="font-semibold text-gray-500">{skippedAllTimeCount || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Accepted</span>
+                    <span className="font-semibold text-green-600">{acceptedAllTimeCount || 0}</span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
       </aside>
-    </>
+    </div>
   );
 }

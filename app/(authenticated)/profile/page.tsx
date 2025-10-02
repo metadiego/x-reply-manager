@@ -1,14 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+import { redirect } from "next/navigation";
 
 export default async function ProfilePage() {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user) {
+    redirect("/auth/login");
+  }
+
   const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const user = data!.claims;
+  const userId = session.user.id;
 
   const { data: profile } = await supabase
     .from('users_profiles')
     .select('*')
-    .eq('id', user.sub)
+    .eq('id', userId)
     .single();
 
   return (

@@ -10,11 +10,11 @@ CREATE TABLE IF NOT EXISTS users_profiles (
   twitter_refresh_token TEXT, -- Will be encrypted at application level
   voice_training_samples TEXT[],
   subscription_tier TEXT DEFAULT 'free',
-  daily_digest_time TIME DEFAULT '09:00:00',
+  daily_digest_time TIME,
   timezone TEXT DEFAULT 'UTC',
-  digest_configured BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  onboarding_completed BOOLEAN DEFAULT false
 );
 
 -- User-defined monitoring targets
@@ -25,7 +25,9 @@ CREATE TABLE IF NOT EXISTS monitoring_targets (
   target_type TEXT NOT NULL CHECK (target_type IN ('topic', 'twitter_list')),
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'archived')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_fetched_at TIMESTAMP WITH TIME ZONE,
+  fetch_count_today INTEGER DEFAULT 0
 );
 
 -- Topic-specific configuration
@@ -70,11 +72,13 @@ CREATE TABLE IF NOT EXISTS curated_posts (
   post_url TEXT, -- full Twitter URL for easy access
   post_created_at TIMESTAMP WITH TIME ZONE, -- when the original post was created
   relevance_score FLOAT,
-  engagement_score FLOAT,
   relationship_score FLOAT,
-  total_score FLOAT, -- calculated final score
-  selection_reason TEXT,
   digest_date DATE,
+  likes_count INTEGER DEFAULT 0,
+  retweets_count INTEGER DEFAULT 0,
+  replies_count INTEGER DEFAULT 0,
+  impressions_count INTEGER DEFAULT 0,
+  metrics_updated_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -103,7 +107,10 @@ CREATE TABLE IF NOT EXISTS user_processing_state (
   current_target_index INTEGER DEFAULT 0,
   daily_reset_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_DATE + INTERVAL '1 day'),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  replies_left_today INTEGER DEFAULT 10,
+  last_served_at TIMESTAMP WITH TIME ZONE,
+  fetch_size INTEGER DEFAULT 10
 );
 
 -- API usage and cost tracking
@@ -141,6 +148,13 @@ CREATE INDEX IF NOT EXISTS idx_curated_posts_user_id_digest_date ON curated_post
 CREATE INDEX IF NOT EXISTS idx_curated_posts_twitter_post_id ON curated_posts(twitter_post_id);
 CREATE INDEX IF NOT EXISTS idx_reply_suggestions_user_id_status ON reply_suggestions(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_api_usage_log_user_id_created_at ON api_usage_log(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_user_processing_state_last_served ON user_processing_state(last_served_at);
+CREATE INDEX IF NOT EXISTS idx_user_processing_state_replies_left ON user_processing_state(replies_left_today);
+CREATE INDEX IF NOT EXISTS idx_monitoring_targets_last_fetched ON monitoring_targets(last_fetched_at);
+CREATE INDEX IF NOT EXISTS idx_monitoring_targets_user_status ON monitoring_targets(user_id, status) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_curated_posts_metrics_lookup ON curated_posts(user_id, twitter_post_id);
+CREATE INDEX IF NOT EXISTS idx_curated_posts_metrics_freshness ON curated_posts(metrics_updated_at) WHERE metrics_updated_at IS NOT NULL;
+
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE users_profiles ENABLE ROW LEVEL SECURITY;
@@ -188,39 +202,40 @@ CREATE POLICY "Users can view own API usage" ON api_usage_log FOR ALL USING (aut
 CREATE POLICY "Users can view own processing batches" ON processing_batches FOR ALL USING (auth.uid() = user_id);
 
 -- Create function to automatically create user profile on signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-DECLARE
-  twitter_handle TEXT := NULL;
-  twitter_user_id TEXT := NULL;
-BEGIN
-  -- Extract Twitter data if this is a Twitter OAuth signup
-  IF NEW.app_metadata ->> 'provider' = 'twitter' AND NEW.user_metadata IS NOT NULL THEN
-    twitter_user_id := NEW.user_metadata ->> 'provider_id';
-    IF twitter_user_id IS NULL THEN
-      twitter_user_id := NEW.user_metadata ->> 'sub';
-    END IF;
+-- CREATE OR REPLACE FUNCTION public.handle_new_user()
+-- RETURNS TRIGGER AS $$
+-- DECLARE
+--   twitter_handle TEXT := NULL;
+--   twitter_user_id TEXT := NULL;
+-- BEGIN
+--   -- Extract Twitter data if this is a Twitter OAuth signup
+--   IF NEW.app_metadata ->> 'provider' = 'twitter' AND NEW.user_metadata IS NOT NULL THEN
+--     twitter_user_id := NEW.user_metadata ->> 'provider_id';
+--     IF twitter_user_id IS NULL THEN
+--       twitter_user_id := NEW.user_metadata ->> 'sub';
+--     END IF;
     
-    twitter_handle := NEW.user_metadata ->> 'user_name';
-    IF twitter_handle IS NULL THEN
-      twitter_handle := NEW.user_metadata ->> 'preferred_username';
-    END IF;
-  END IF;
+--     twitter_handle := NEW.user_metadata ->> 'user_name';
+--     IF twitter_handle IS NULL THEN
+--       twitter_handle := NEW.user_metadata ->> 'preferred_username';
+--     END IF;
+--   END IF;
 
-  INSERT INTO public.users_profiles (id, twitter_handle, twitter_user_id)
-  VALUES (NEW.id, twitter_handle, twitter_user_id);
+--   INSERT INTO public.users_profiles (id, twitter_handle, twitter_user_id)
+--   VALUES (NEW.id, twitter_handle, twitter_user_id);
   
-  INSERT INTO public.user_processing_state (user_id)
-  VALUES (NEW.id);
+--   INSERT INTO public.user_processing_state (user_id)
+--   VALUES (NEW.id);
   
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+--   RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create trigger to auto-create profile on user signup
-CREATE OR REPLACE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+-- Disabled for NextAuth migration
+-- CREATE OR REPLACE TRIGGER on_auth_user_created
+--   AFTER INSERT ON auth.users
+--   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Create function to update timestamps
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()

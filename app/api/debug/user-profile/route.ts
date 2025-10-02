@@ -1,21 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
 
 export async function GET() {
   try {
-    const supabase = await createClient();
-    const { data: authData, error: authError } = await supabase.auth.getClaims();
-    
-    if (authError || !authData?.claims) {
-      return NextResponse.json({ error: "Not authenticated", authError }, { status: 401 });
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const userId = authData.claims.sub;
-    console.log('Debug - User ID from auth:', userId);
-
-    // Check if user exists in auth.users (server-side check)
-    const { data: authUser, error: authUserError } = await supabase.auth.getUser();
-    console.log('Debug - Auth user:', authUser, 'Error:', authUserError);
+    const supabase = await createClient();
+    const userId = session.user.id;
+    console.log('Debug - User ID from NextAuth:', userId);
 
     // Check users_profiles table
     const { data: profile, error: profileError } = await supabase
@@ -43,8 +41,11 @@ export async function GET() {
 
     return NextResponse.json({
       userId,
-      authUser: authUser?.user ? { id: authUser.user.id, email: authUser.user.email } : null,
-      authUserError,
+      session: {
+        user: session.user,
+        accessToken: session.accessToken ? 'present' : 'missing',
+        refreshToken: session.refreshToken ? 'present' : 'missing',
+      },
       profile,
       profileError: profileError ? {
         code: profileError.code,
@@ -56,11 +57,6 @@ export async function GET() {
         code: targetsError.code,
         message: targetsError.message,
         details: targetsError.details
-      } : null,
-      testInsertError: testInsertError ? {
-        code: testInsertError.code,
-        message: testInsertError.message,
-        details: testInsertError.details
       } : null
     });
 

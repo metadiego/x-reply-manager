@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import TwitterApiService, { TwitterTweet } from '@/lib/twitter-api';
 import OpenAI from 'openai';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/auth';
 
 // Types for the combined analysis response
 
@@ -48,20 +50,25 @@ const openai = new OpenAI({
 
 export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { error: string }>> {
   try {
-    const supabase = await createClient();
-    
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = await createClient();
+    const userId = session.user.id;
+
+    console.log('User:', userId);
 
     // Get user's Twitter handle from their profile
     const { data: profile, error: profileError } = await supabase
       .from('users_profiles')
       .select('twitter_handle, twitter_user_id')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
+
+    console.log('Profile:', profile);
 
     if (profileError || !profile?.twitter_handle) {
       // Return fallback analysis when Twitter handle isn't available
@@ -89,6 +96,8 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
     // Fetch user's recent tweets (fetch more for better analysis)
     console.log(`Fetching tweets for @${profile.twitter_handle} for combined analysis`);
     const userTweets = await twitterService.getUserTweetsByUsername(profile.twitter_handle, MIN_TWEETS_FOR_ANALYSIS);
+
+    console.log('User tweets:', userTweets);
 
     if (userTweets.length === 0) {
       return NextResponse.json({
@@ -126,7 +135,7 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
     await supabase
       .from('api_usage_log')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         operation_type: 'combined_onboarding_analysis',
         posts_fetched: userTweets.length,
         estimated_cost_usd: twitterCost + openaiCost,
