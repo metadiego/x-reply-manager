@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import TwitterApiService, { TwitterTweet } from '@/lib/twitter-api';
 import OpenAI from 'openai';
 import { getServerSession } from 'next-auth';
@@ -56,10 +56,8 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const userId = session.user.id;
-
-    console.log('User:', userId);
 
     // Get user's Twitter handle from their profile
     const { data: profile, error: profileError } = await supabase
@@ -67,8 +65,6 @@ export async function POST(): Promise<NextResponse<CombinedAnalysisResponse | { 
       .select('twitter_handle, twitter_user_id')
       .eq('id', userId)
       .single();
-
-    console.log('Profile:', profile);
 
     if (profileError || !profile?.twitter_handle) {
       // Return fallback analysis when Twitter handle isn't available
