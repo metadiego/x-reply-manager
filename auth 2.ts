@@ -15,16 +15,6 @@ export const authOptions: NextAuthOptions = {
         params: {
           scope: "tweet.read tweet.write users.read offline.access"
         }
-      },
-      profile(profile) {
-        // Twitter OAuth 2.0 returns data in profile.data
-        // Only return standard NextAuth user fields
-        return {
-          id: profile.data.id,
-          name: profile.data.name,
-          email: profile.data.email || undefined,
-          image: profile.data.profile_image_url,
-        }
       }
     })
   ],
@@ -39,35 +29,21 @@ export const authOptions: NextAuthOptions = {
   events: {
     async linkAccount({ user, account, profile }) {
       // This event fires when an OAuth account is linked to a user
+      console.log('[NextAuth linkAccount event] Linking account for user:', user.id)
 
       try {
-        // Fetch the Twitter username from Twitter API using the access token
-        let twitterUsername: string | null = null
+        const twitterProfile = profile as any
 
-        if (account.access_token) {
-          try {
-            const twitterResponse = await fetch('https://api.twitter.com/2/users/me', {
-              headers: {
-                'Authorization': `Bearer ${account.access_token}`,
-              },
-            })
+        console.log('[NextAuth linkAccount event] Account:', account)
 
-            if (twitterResponse.ok) {
-              const twitterData = await twitterResponse.json()
-              twitterUsername = twitterData.data?.username || null
-              console.log('[NextAuth linkAccount] Fetched Twitter username:', twitterUsername)
-            } else {
-              console.error('[NextAuth linkAccount] Failed to fetch Twitter profile:', await twitterResponse.text())
-            }
-          } catch (fetchError) {
-            console.error('[NextAuth linkAccount] Error fetching Twitter profile:', fetchError)
-          }
-        }
+        console.log('[NextAuth linkAccount event] Twitter profile:', twitterProfile)
+
+        console.log('[NextAuth linkAccount event] User:', user)
 
         // First, create or update users_profiles with Twitter data
         const profileData = {
           id: user.id,
-          twitter_handle: twitterUsername,
+          twitter_handle: twitterProfile.data?.username || null,
           twitter_user_id: account.providerAccountId,
           twitter_access_token: account.access_token || null,
           twitter_refresh_token: account.refresh_token || null,
@@ -95,7 +71,7 @@ export const authOptions: NextAuthOptions = {
         if (profileExists) {
           // Update existing profile
           const updateData = {
-            twitter_handle: twitterUsername,
+            twitter_handle: twitterProfile.data?.username || null,
             twitter_user_id: account.providerAccountId,
             twitter_access_token: account.access_token || null,
             twitter_refresh_token: account.refresh_token || null,
@@ -202,11 +178,6 @@ export const authOptions: NextAuthOptions = {
         token.refreshToken = account.refresh_token
         token.twitterUserId = account.providerAccountId
         token.userId = user?.id
-        // Store twitter username from the raw profile data
-        if (account.provider === 'twitter') {
-          const twitterProfile = profile as any
-          token.twitterUsername = twitterProfile.data?.username || null
-        }
       }
       return token
     },
